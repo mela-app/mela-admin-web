@@ -1,0 +1,15 @@
+{
+  "name": "mela-branding",
+  "private": true,
+  "description": "Mela brand assets: the logo geometry, the SVG sources, and every icon and splash image the apps ship.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "@expo-google-fonts/montserrat": "^0.4.2",
+    "@expo-google-fonts/noto-sans-ethiopic": "^0.4.2",
+    "@resvg/resvg-js": "^2.6.2",
+    "opentype.js": "^2.0.0"
+  }
+}

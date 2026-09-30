@@ -1,0 +1,43 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, Consolas, monospace;
+
+  /* One restrained accent - Mela teal; 700 is the logo's own. Everything else is neutral. */
+  --color-brand-50: oklch(97.5% 0.012 230);
+  --color-brand-100: oklch(94.8% 0.024 231);
+  --color-brand-200: oklch(89.5% 0.046 232);
+  --color-brand-300: oklch(81.5% 0.074 233);
+  --color-brand-400: oklch(70.5% 0.094 234);
+  --color-brand-500: oklch(60% 0.098 235);
+  --color-brand-600: oklch(51.5% 0.09 236);
+  --color-brand-700: #1d5b7c;
+  --color-brand-800: oklch(38.5% 0.07 237);
+  --color-brand-900: oklch(33% 0.058 238);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-zinc-50 text-sm text-zinc-900 antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  ::selection {
+    @apply bg-brand-100 text-brand-900;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-500;
+  }
+
+  dialog::backdrop {
+    background: rgb(24 24 27 / 0.45);
+  }
+}

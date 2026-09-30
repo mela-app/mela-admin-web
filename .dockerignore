@@ -1,0 +1,16 @@
+# Only what the image build needs.
+node_modules
+dist
+coverage
+.env*
+*.log
+Dockerfile
+.dockerignore
+# The project docs, the brand source and the repository's own tooling.
+docs
+branding
+.github
+docker-compose.yml
+README.md
+.editorconfig
+.gitignore

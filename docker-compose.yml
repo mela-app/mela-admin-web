@@ -1,0 +1,21 @@
+# The admin console's container, locally - the image production uses.
+# Start the API first (mela-backend), then, with .env in place (copy
+# .env.example):
+#
+#   docker compose up -d --build
+#
+# and open http://localhost:<ADMIN_PORT>. Its nginx proxies /v1 to
+# API_UPSTREAM, so the console and the API share one origin, as the sign-in
+# cookie needs.
+services:
+  admin:
+    build: .
+    image: mela-admin:local
+    restart: unless-stopped
+    environment:
+      API_UPSTREAM: "${API_UPSTREAM:?set API_UPSTREAM in .env}"
+      CSP_IMG_SRC: "${CSP_IMG_SRC:?set CSP_IMG_SRC in .env}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${ADMIN_PORT:?set ADMIN_PORT in .env}:8080"

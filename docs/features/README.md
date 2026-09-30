@@ -64,6 +64,7 @@ Where its tests live and what they cover.
 | Web player (share links play in the browser) | [share.md](./share.md), [auth.md](./auth.md) (web sign-in), [realtime.md](./realtime.md) (watch-only sockets) | Done (2026-09-30) |
 | Host photos in chat | [chat.md](./chat.md), [storage.md](./storage.md) | Done (2026-09-30) |
 | Recording permission (no screen recording unless the host allows) | [streams.md](./streams.md), [realtime.md](./realtime.md) | Done (2026-09-30) |
+| Direct messages between friends (Inbox tab) | [messages.md](./messages.md) | Done (2026-09-30) |
 | Guests | [guests.md](./guests.md) | Done (Phase 6) |
 | Mute/unmute (all four kinds, plan §6.7) | [moderation.md](./moderation.md) (room chat mute), [guests.md](./guests.md) (mic lock), [social.md](./social.md) (personal chat mute), [chat.md](./chat.md) | Done (Phase 7) |
 | Low bandwidth: Data Saver, offline banner | [streams.md](./streams.md), [realtime.md](./realtime.md) | Done (Phase 7) |

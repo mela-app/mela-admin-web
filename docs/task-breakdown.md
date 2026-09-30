@@ -359,6 +359,14 @@ Deliberately after Phase 4: don't amplify reach (notifications, share links) bef
 - [x] No built-in addresses anywhere: every URL, host, port and app identifier comes from each repository's `.env` (`.env.example` holds this machine's values; the mobile app reads its file with `--dart-define-from-file`). The API (`env.validation.ts`), both Vite dev servers, the compose files, the admin image and the app all refuse to start without their settings and name the missing ones; builds and tests need none (CI has no `.env`)
 - [ ] Create the four GitHub repositories, push them, and set the deploy secrets (repository or organization level); add `S3_REGION` to the server's `.env` before its next deploy
 
+**Direct messages between friends** (client request, 2026-09-30 - docs/features/messages.md)
+- [x] `conversations` (one row per pair of people) + `direct_messages` (`readAt`, `clientId`), migration `20261001090000_direct_messages`
+- [x] `/me/conversations` REST: the inbox (newest first, unread count per conversation, `canMessage`), the unread total, a conversation's history (`before`), send, mark read. Only friends (mutual follows) can send - `403 NOT_FRIENDS` otherwise; live chat's text rules (cleaning up to 1000 characters, phrase filter, link policy); 5 at once, then one a second; resend-safe by `clientId`; people you blocked are left out of the inbox and the count
+- [x] Realtime to both people's `user:{id}` rooms: `message:new`, `message:read`, and `message:unread_count` (a total)
+- [x] App: an **Inbox** tab next to Following with the unread badge; the conversation list; a conversation screen (a message shows at once, with retry; Sent/Seen; earlier messages on scrolling up; read on open; locked with a note once they no longer follow each other); "New message" picks a friend; a Message button on a friend's profile
+- [ ] Push notifications for messages while the app is closed - needs the Firebase project, like the other push types
+- [ ] Device check: two phones messaging each other, the badge and Seen updating live
+
 **Needs from the project owner**: an app domain, a Firebase project, and an Apple Developer account (iOS push).
 
 ## Phase 6 — Guest management (was Phase 4)

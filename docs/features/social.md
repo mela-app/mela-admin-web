@@ -3,7 +3,7 @@
 **Location**: `apps/backend/src/social` (follow graph, personal block), `apps/backend/src/users` (profile, search route, avatar upload, block routes)
 **Plan reference**: plan §6.10, §6.4 (block); task-breakdown Phase 3 & 4
 **Depends on**: `common/prisma`; `users` depends on `social` (not the other way around) and `common/storage`
-**Depended on by**: `streams` (the `feed=following` discovery tab, blocked-host exclusion, and `isFollowingHost` on join - see docs/features/streams.md); Phase 5 notifications will consume `user.followed`
+**Depended on by**: `streams` (the `feed=following` discovery tab, blocked-host exclusion, and `isFollowingHost` on join - see docs/features/streams.md); Phase 5 notifications will consume `user.followed`; `direct-messages` (`isFriend` decides who may message whom - docs/features/messages.md)
 
 ## What it does
 

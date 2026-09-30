@@ -40,6 +40,14 @@ the host let a viewer record their live or took it back - relayed only to
 that viewer's `user:{id}` room as `recording:permission {streamId, allowed}`
 (docs/features/streams.md). Carries `actorId`; not audited.
 
+`direct_message.sent` and `direct_message.read` (`DirectMessagesService`,
+2026-09-30): a message between friends was stored, or someone read what
+their partner sent. `RealtimeGateway` relays them to both people's
+`user:{id}` rooms as `message:new` / `message:read`, with
+`message:unread_count` (a total) to whoever's badge changed
+(docs/features/messages.md). Only the gateway listens - message text never
+reaches the audit trail.
+
 Phase 8 (admin console, plan §6.8) made the bus the audit trail's only
 input: `AuditEventsListener` (`src/audit`) turns events from every module
 into `audit_logs` rows, so no module imports `audit`. New events:

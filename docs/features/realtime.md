@@ -51,6 +51,9 @@ One Socket.IO gateway (`RealtimeGateway`), and one app-wide connection per signe
 | `stream:locked` | `{streamId, reason}` | the room, just before its `stream_ended` (`reason: 'LOCKED'`) - an administrator stopped the live (docs/features/admin.md); the app's ended screen shows the reason |
 | `stream:unlocked` | `{streamId}` | the host's `user:{id}` only - the live stays over, so its room is already empty |
 | `admin:alert` | `{id, scope, streamId, message, severity, createdAt}` | one live's room (`STREAM`) or every connected socket (`GLOBAL`); shown as a banner over any screen |
+| `message:new` | `{message, sender, recipient}` | both people's `user:{id}` - a direct message between friends (docs/features/messages.md); the sender's other devices get it too |
+| `message:read` | `{readerId, partnerId, readAt}` | both people's `user:{id}` - the partner's app shows Seen, the reader's other devices clear the conversation |
+| `message:unread_count` | `{count}` | the `user:{id}` whose unread total changed - the Inbox badge (a total, not a delta) |
 
 The `user.suspended` and `user.sessions_revoked` events force-disconnect that user's sockets through `user:{id}`; their sessions were ended too, so the reconnect is refused. `RealtimeGateway.connectedCount(streamId?)` tells the console how many devices an alert would reach.
 

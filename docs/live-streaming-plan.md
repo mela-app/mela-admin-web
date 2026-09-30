@@ -38,6 +38,7 @@ Scope reference: TikTok LIVE-style broadcasting for a gaming/gambling content ap
 11. **Notifications** — when someone goes live, their followers are notified (in-app inbox + realtime banner while the app is open, mobile push when it's closed); also new-follower, moderator-appointed, stage-invite, and live-invite notifications. See §6.11.
 12. **Share a live** — any participant can share a live through the native share sheet (the link opens the live in-app, with a lightweight web fallback) or send it straight to friends inside the app. See §6.12.
 13. **Live-room engagement** — likes with floating hearts, pinned message, viewer list, a "LIVE has ended" screen with a follow prompt, and a post-live summary for the host. See §6.13.
+14. **Direct messages between friends** (client request, 2026-09-30) — two people who follow each other can message privately; an Inbox tab next to Following shows the conversations and an unread badge. See §6.15.
 
 ### 2.2 Explicitly deferred (not scheduled in the MVP phases)
 - Virtual gifting / monetization / wallet & payments
@@ -462,6 +463,16 @@ Concrete layout and interaction rules, so every new screen extends one design la
 - **Accessibility**: honor system text scaling (no fixed-height text containers), ≥ 44 px touch targets, ≥ 4.5:1 contrast for text over video (the reason the scrims exist), semantic labels on icon-only buttons.
 - **Identity and copy**: a real app name and icon, sentence-case labels, and the same verbs everywhere ("Go live", "End live", "Follow", "Request to join").
 
+### 6.15 Direct messages (friends only)
+*Client request, 2026-09-30.* Private one-to-one text messages - only between **friends** (people who follow each other, §6.10), so a stranger can't message anyone, and a block (which deletes follows both ways, §6.4) ends it too.
+- **Where**: home gets a third tab, **Inbox**, next to For You and Following, with a badge counting unread messages; it lists conversations newest first (last message, time, unread count). "New message" picks a friend; a friend's profile has a **Message** button.
+- **Sending**: live chat's text rules (§6.3) - cleaning, the banned-phrase filter, the link policy - on messages of up to 1,000 characters, rate-limited per sender, and resend-safe (the app's `clientId`). Anyone who isn't a friend (any more) is refused; the history stays readable, and the composer says why.
+- **Delivery**: stored first, then pushed over the realtime connection to both people's `user:{id}` rooms (`message:new`), plus the recipient's unread total (`message:unread_count`). Opening a conversation marks it read (`message:read`), and the sender sees **Seen**.
+- **Privacy**: people you blocked are left out of your inbox and count; message text isn't audited, and the admin console has no view of it.
+- **Deferred**: push notifications for messages (needs the Firebase project, like §6.11's push), photos, group conversations.
+
+Details: docs/features/messages.md.
+
 ## 7. Low-bandwidth / lightweight app strategy
 A core constraint: hosts and viewers may be on slow, capped, or unstable mobile data. The app should degrade gracefully instead of stuttering or failing outright.
 
@@ -504,10 +515,12 @@ A core constraint: hosts and viewers may be on slow, capped, or unstable mobile 
 | `follows` | followerId, followeeId, status(active/pending — pending reserved for private accounts), notifyOnLive (default true), createdAt — unique(followerId, followeeId), index(followeeId) for go-live fan-out |
 | `notifications` | id, recipientId, type(stream_started/new_follower/stream_invite/moderator_granted/guest_invite), actorId (nullable), streamId (nullable), readAt (nullable), createdAt — index(recipientId, createdAt desc) |
 | `notification_settings` | userId, type, pushEnabled, inAppEnabled — defaults apply when no row exists |
+| `conversations` | id, userAId, userBId (the smaller id first — one row per pair), lastMessageAt, createdAt — unique(userAId, userBId) (§6.15) |
+| `direct_messages` | id, conversationId, senderId, recipientId, text, clientId (nullable), readAt (nullable), createdAt — unique(senderId, clientId), index(recipientId, readAt) for the unread count (§6.15) |
 
 ## 9. Realtime Event Catalog (Socket.IO)
 
-`chat:new`, `chat:rejected`, `chat:delete` · `guest_request:new`, `guest_request:accepted`, `guest_request:rejected` · `guest:joined`, `guest:removed`, `you_were_removed` · `force_mute_audio`, `presence:audio_state` · `chat:muted`, `chat:unmuted` (room chat mute, to the muted user only, §6.7) · `viewer_count_update` · `stream_ended` · `force_disconnect` (bans) · `stream:locked`, `stream:unlocked` (host only), `admin:alert` (admin actions) · `moderator:granted`, `moderator:revoked`, `moderator:updated` · `chat:pinned`, `chat:unpinned` · `like:send` (client→server), `likes_update` · `notification:new`, `notification:unread_count` · `stream:host_join`, `stream:host_heartbeat` (host→server, §6.1) · `stream:layout_changed` (§6.1) · `stream:watch` (client→server, the web player's watch-only socket, §6.12) · `recording:permission` (to that viewer only, §6.2)
+`chat:new`, `chat:rejected`, `chat:delete` · `guest_request:new`, `guest_request:accepted`, `guest_request:rejected` · `guest:joined`, `guest:removed`, `you_were_removed` · `force_mute_audio`, `presence:audio_state` · `chat:muted`, `chat:unmuted` (room chat mute, to the muted user only, §6.7) · `viewer_count_update` · `stream_ended` · `force_disconnect` (bans) · `stream:locked`, `stream:unlocked` (host only), `admin:alert` (admin actions) · `moderator:granted`, `moderator:revoked`, `moderator:updated` · `chat:pinned`, `chat:unpinned` · `like:send` (client→server), `likes_update` · `notification:new`, `notification:unread_count` · `stream:host_join`, `stream:host_heartbeat` (host→server, §6.1) · `stream:layout_changed` (§6.1) · `stream:watch` (client→server, the web player's watch-only socket, §6.12) · `recording:permission` (to that viewer only, §6.2) · `message:new`, `message:read`, `message:unread_count` (direct messages, to the two people only, §6.15)
 
 Delivery targets: `stream:{id}` rooms (everyone in a live) or `user:{id}` rooms (one person, on all of their devices, §4.1 #10). Payload changes stay additive — e.g. `stream_ended` gaining an optional `reason` field (§6.1) is allowed; repurposing an existing field is not.
 
@@ -565,6 +578,11 @@ GET    /me/notifications | /me/notifications/unread-count
 POST   /me/notifications/read
 PUT/DELETE /me/push-token
 GET/PATCH /me/notification-settings
+
+# Direct messages between friends (§6.15)
+GET    /me/conversations | /me/conversations/unread-count
+GET/POST /me/conversations/:userId/messages   (history with ?before= | send {text, clientId?})
+POST   /me/conversations/:userId/read
 
 # Share fallback (unversioned, for browsers — §6.12)
 GET    /live/:streamId                   (web fallback page with Open Graph tags; while live, it loads the web player from /web/*)

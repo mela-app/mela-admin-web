@@ -219,7 +219,7 @@ finds the client. Deploying: [docs/deployment.md](../deployment.md).
 | `TRUST_PROXY` | backend | Express `trust proxy` (a hop count or a list), so audit entries record the real client IP |
 | `CORS_ORIGIN` | backend | Required. Include the console's origin if it is ever served from a different origin |
 | `ADMIN_API_ORIGIN` | admin-web `.env` (dev server, preview) | Where Vite proxies `/v1`; required, no default |
-| `API_UPSTREAM`, `CSP_IMG_SRC` | admin-web image | Where nginx proxies `/v1`; extra image sources for the CSP. Both required - the image has no defaults (production: set by `infra/production`; locally: the repo's `.env`) |
+| `API_UPSTREAM`, `CSP_IMG_SRC` | admin-web image | Where nginx proxies `/v1`; extra image sources for the CSP. Both required - the image has no defaults (production: `/usr/src/apps/mela/admin/.env`; locally: the repo's `.env`) |
 
 ## How to add to this feature
 

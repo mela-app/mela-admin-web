@@ -1,90 +1,195 @@
 # Deploying Mela
 
-The API, the admin console, the share page's web player, Postgres, Redis, HTTPS and (optionally) LiveKit run on one Linux server with Docker, from `infra/production/` in a clone of **mela-backend**. The console and the player arrive as images their own repositories publish. Local development is in each repository's README; this page is the server.
+Mela runs on the shared VPS, in the same shape as every other app there:
+
+```
+/usr/src/apps/
+├── infra/                    shared by every app
+│   ├── postgres/             .env, docker-compose.yml, init-multi-db.sh
+│   ├── redis/                .env, docker-compose.yml
+│   └── livekit/              .env, docker-compose.yml, livekit.yaml   (Mela only, but infrastructure)
+└── mela/
+    ├── api/                  .env, docker-compose.yml, secrets/
+    ├── web/                  .env, docker-compose.yml
+    └── admin/                .env, docker-compose.yml
+```
+
+Each folder is one `docker compose` project with its own `.env`. They find
+each other on the external `system-net` network, by container name, so
+Postgres and Redis are never published to the internet and each app
+publishes only its own port behind the reverse proxy.
+
+The compose files and env templates for Mela's folders live in the
+repositories: `infra/api/` in **mela-backend**, `infra/livekit/` likewise,
+and each front end's `docker-compose.yml` at its own repository root. They
+are templates - the copies on the server are what actually run, and CI never
+touches them.
 
 ## What runs
 
-| Service | Image | Reachable at |
+| Container | Image | Where |
 | --- | --- | --- |
-| `caddy` | `caddy:2.10-alpine` | ports 80/443 on the host: TLS for every domain (Let's Encrypt, automatic) |
-| `backend` | `mela-backend` (mela-backend's `Dockerfile`) | `127.0.0.1:3000`, behind `https://API_DOMAIN` |
-| `migrate` | `mela-backend` | one-shot at every deploy: `prisma migrate deploy`, then the super-admin seed |
-| `admin` | `mela-admin` (this repository's `Dockerfile`) | `127.0.0.1:8080`, behind `https://ADMIN_DOMAIN`; its nginx proxies `/v1` to the backend, so the console and the API share one origin |
-| `web` | `mela-web` (mela-web's `Dockerfile`) | `127.0.0.1:8081`, behind `https://API_DOMAIN/web/*`: the web player's static files, which the share pages (`/live/:id`, served by the backend) load - see [features/share.md](features/share.md) |
-| `postgres`, `redis` | `postgres:16-alpine`, `redis:7-alpine` | the internal Docker network only |
-| `livekit` (profile `livekit`) | `livekit/livekit-server` | `127.0.0.1:7880` behind `https://LIVEKIT_DOMAIN`, media on 7881/tcp and 50000-60000/udp |
+| `mela-api` | `ghcr.io/<owner>/mela-backend` | `/usr/src/apps/mela/api`, published on `API_PORT` |
+| `mela-api-migrate` | the same image | one-shot at every deploy: `prisma migrate deploy`, then the super-admin seed |
+| `mela-admin` | `ghcr.io/<owner>/mela-admin` | `/usr/src/apps/mela/admin`; its nginx proxies `/v1` to `mela-api`, so the console and the API share one origin, as the sign-in cookie needs |
+| `mela-web` | `ghcr.io/<owner>/mela-web` | `/usr/src/apps/mela/web`: the share page's player, which the API's `/live/:id` pages load - see [features/share.md](features/share.md) |
+| `postgres`, `redis` | shared infra | `/usr/src/apps/infra/*`, on `system-net` only |
+| `livekit` | `livekit/livekit-server` | `/usr/src/apps/infra/livekit`, host networking: signaling on `127.0.0.1:7880`, media on 7881/tcp and 50000-60000/udp |
 
-Avatars go to an external S3-compatible bucket (S3, R2, ...) - see [features/storage.md](features/storage.md).
+Avatars and chat photos go to an external S3-compatible bucket (S3, R2, ...)
+- see [features/storage.md](features/storage.md).
 
-All three app images run as unprivileged users, with a Docker `HEALTHCHECK` (`/health` checks the database and Redis; the console and the web player answer `/healthz`). The console's nginx sends a strict Content-Security-Policy, HSTS and the usual hardening headers; the API sets its own with helmet (and the share page, which loads the video SDKs, a CSP of its own).
+All three app images run as unprivileged users with a Docker `HEALTHCHECK`
+(the API's `/health` checks Postgres and Redis; the console and the player
+answer `/healthz`).
 
-## First deploy
+## Configuring the API
 
-1. **Server**: Linux with Docker Engine and the Compose plugin. At least 2 GB of RAM; LiveKit wants more CPU and bandwidth (see [features/video-provider.md](features/video-provider.md)).
-2. **DNS**: A/AAAA records for `API_DOMAIN`, `ADMIN_DOMAIN` and (with LiveKit) `LIVEKIT_DOMAIN`, pointing at the server.
-3. **Firewall**: `80/tcp` and `443/tcp`; with LiveKit also `7881/tcp` and `50000-60000/udp`. With ufw: `sudo ufw allow 80,443,7881/tcp && sudo ufw allow 50000:60000/udp` (and the same in the cloud provider's firewall).
-4. **Settings**: on the server, in a clone of mela-backend:
+This is the part that differs from the other apps on the VPS: the API is
+Node with Prisma, so the schema is applied by a one-shot container rather
+than by the app itself.
+
+1. **The database.** Postgres is shared, so Mela needs its own database and
+   user there. On a server that already has data the init scripts no longer
+   run - create it by hand, once; the commands are in mela-backend's
+   `infra/postgres/README.md`. On Postgres 15 and later don't skip the
+   `GRANT ALL ON SCHEMA public`, or the first migration fails with
+   *permission denied for schema public*.
+
+2. **The network.** Once per server:
    ```
-   cd infra/production
-   cp .env.example .env
+   docker network create system-net
    ```
-   Fill in `.env` - every secret with a fresh random value (`openssl rand -hex 32`), `POSTGRES_PASSWORD` with letters and digits only, and `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` for the first super admin. The backend refuses to start with a sample or short secret. Point `BACKEND_IMAGE` / `ADMIN_IMAGE` / `WEB_IMAGE` at the GHCR packages the repositories' CD publishes (`ghcr.io/<owner>/mela-backend`, `ghcr.io/<owner>/mela-admin`, `ghcr.io/<owner>/mela-web`, owner lowercase); `BACKEND_IMAGE` may be left unset to build the API on the server instead. For LiveKit, generate the key pair with `docker run --rm livekit/livekit-server:v1.13.7 generate-keys` into `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` (the `livekit` service is configured from the same two values).
-5. **Registry**: the images are private by default, so let the server read them - `echo <token> | docker login ghcr.io -u <user> --password-stdin` with a classic PAT that has only `read:packages`. This is the server's only registry login: the CD workflows never log in there, so no token with write access ever reaches the server. Renew the PAT before it expires, or pulls (and deploys) start failing.
-6. **Start**:
+   (The shared Postgres compose creates it already; this is only for a
+   fresh machine.)
+
+3. **The folder.**
+   ```
+   mkdir -p /usr/src/apps/mela/api/secrets
+   cd /usr/src/apps/mela/api
+   ```
+   Copy `infra/api/docker-compose.yml` and `infra/api/.env.example` from
+   mela-backend into it, then `cp .env.example .env`.
+
+4. **The settings.** Fill in `.env`. The ones that matter most:
+
+   | Setting | What it is |
+   | --- | --- |
+   | `API_IMAGE` | `ghcr.io/<owner>/mela-backend:latest` - the package CD publishes, owner lowercase |
+   | `API_PORT` / `PORT` | the same number, e.g. `6002`: the compose file maps the port to itself, and the API listens on `PORT` |
+   | `DATABASE_URL` | `postgresql://mela_system_user:<password>@postgres:5432/mela_system?schema=public` - the container name, not localhost |
+   | `REDIS_URL` | `redis://redis:6379` |
+   | `CORS_ORIGIN` | the admin console's public address |
+   | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | two different `openssl rand -hex 32` values |
+   | `LIVEKIT_API_URL` | `http://host.docker.internal:7880` - LiveKit uses host networking, so it is not a container name |
+   | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | the first super admin, created by the migrate job |
+
+   Compose does **not** expand `${...}` inside an `env_file`, so unlike the
+   .NET apps on this server, `DATABASE_URL` spells its values out rather
+   than referring to `POSTGRES_USER` and friends. The `POSTGRES_*` lines are
+   documentation; keep them in step by hand.
+
+   The API validates its environment at boot and refuses to start on a
+   missing setting or a sample secret, naming what is wrong - so a bad
+   `.env` shows up in `docker compose logs mela-api`, not as a broken
+   request later.
+
+5. **The registry.** The images are private, so let the server read them:
+   ```
+   echo <token> | docker login ghcr.io -u <user> --password-stdin
+   ```
+   with a classic PAT that has only `read:packages`. Renew it before it
+   expires, or pulls - and deploys - start failing.
+
+6. **Start.**
    ```
    docker compose pull
    docker compose up -d
    ```
-   With `VIDEO_PROVIDER=livekit` on this same server, set `COMPOSE_PROFILES=livekit` in `.env` first, so LiveKit comes up with the rest. (Building the API on the server instead: `docker compose up -d --build`.) `migrate` runs first; the backend starts only once it succeeds. Check: `docker compose ps` (all healthy), `docker compose logs migrate`, `curl https://API_DOMAIN/health`, and `https://ADMIN_DOMAIN` shows the sign-in page.
-7. **Sign in** to the console with the seeded admin and choose a new password (the seeded one is temporary). Then clear `SEED_ADMIN_PASSWORD` in `.env` - it is never used again once the account exists.
+   `migrate` runs first and the API waits for it to exit cleanly. Check:
+   `docker compose ps` (healthy), `docker compose logs migrate`, and
+   `curl http://localhost:${API_PORT}/health`.
+
+7. **The reverse proxy** in front of the VPS needs the API's public domain
+   pointed at `API_PORT`, and `/web/*` on that same domain at the player's
+   port, so share pages and the files they load share an origin.
+
+8. **Sign in** to the console with the seeded admin and choose a new
+   password (the seeded one is temporary). Then clear `SEED_ADMIN_PASSWORD`
+   in `.env` - it is never used again once the account exists.
+
+### LiveKit
+
+Only with `VIDEO_PROVIDER=livekit`. It is infrastructure, not part of the
+API: `/usr/src/apps/infra/livekit`, from `infra/livekit/` in mela-backend.
+Generate a key pair with `docker run --rm livekit/livekit-server:v1.13.7
+generate-keys`, put it in that folder's `.env` as `LIVEKIT_KEYS` and the
+same pair in the API's `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET`. Open
+`7881/tcp` and `50000-60000/udp` in the firewall, and give
+`LIVEKIT_DOMAIN` a TLS proxy to `127.0.0.1:7880` - the apps connect to
+`wss://`. Details: [features/video-provider.md](features/video-provider.md).
 
 ## Continuous delivery
 
-Each app deploys on its own, from its own repository's `.github/workflows/cd.yml`, on every push to `main` (or by hand from the Actions tab). Each workflow runs one deploy of its app at a time.
+Each app deploys on its own, from its own repository's
+`.github/workflows/cd.yml`, on every push to `main` (or by hand from the
+Actions tab). Each workflow runs one deploy of its app at a time, builds its
+image, pushes it to GHCR, then over SSH, in its own folder on the server:
+`docker compose pull` and `docker compose up -d`.
 
-| Repository | Builds and pushes | Then, over SSH |
+Because each app is its own compose project, a deploy only ever touches that
+app: the console's release cannot restart the API, and neither can touch
+Postgres, Redis or LiveKit. For the API, `up -d` runs the `migrate`
+container first, on the new image, before the new API serves anything.
+
+| Repository | Pushes | `DEPLOY_PATH` |
 | --- | --- | --- |
-| mela-backend | `ghcr.io/<owner>/mela-backend:latest` + `:<sha>` | `down`, `pull`, `up -d` (the whole stack) |
-| mela-admin-web | `ghcr.io/<owner>/mela-admin:latest` + `:<sha>` | `pull admin`, `up -d --no-deps admin` |
-| mela-web | `ghcr.io/<owner>/mela-web:latest` + `:<sha>` | `pull web`, `up -d --no-deps web` |
+| mela-backend | `ghcr.io/<owner>/mela-backend:latest` + `:<sha>` | `/usr/src/apps/mela/api` |
+| mela-admin-web | `ghcr.io/<owner>/mela-admin:latest` + `:<sha>` | `/usr/src/apps/mela/admin` |
+| mela-web | `ghcr.io/<owner>/mela-web:latest` + `:<sha>` | `/usr/src/apps/mela/web` |
 
-`--no-deps` is what keeps the two front ends independent: each of those workflows recreates one container and leaves Caddy, Postgres, Redis, LiveKit and the other apps running. A console release never restarts the API. The API's own deploy restarts the stack (`down` then `up -d`), and `migrate` runs first on the new image, before the API serves anything, because the backend depends on it.
+Tests run on every pull request, in each repository's `ci.yml` (all named
+`CI`), plus `mobile-native-builds` when the mobile app's native files change.
 
-Tests run on every pull request, in each repository's `ci.yml` (all named `CI`), plus `mobile-native-builds` when the mobile app's native files change.
-
-The same secrets drive the deploy step in each of the three repositories - **Settings > Secrets and variables > Actions**, or once for all of them as organization secrets:
+The same secrets drive the deploy step in each repository - **Settings >
+Secrets and variables > Actions**, or once for all of them as organization
+secrets:
 
 | Secret | Value |
 | --- | --- |
 | `SERVER_HOST` | the server's hostname or IP |
 | `SERVER_USER` | an SSH user in the `docker` group (not root) |
 | `SERVER_PASSWORD` | that user's SSH password |
-| `DEPLOY_PATH` | the directory holding `.env` and `docker-compose.yml` on the server, e.g. `/srv/mela-backend/infra/production` |
+| `DEPLOY_PATH` | that app's folder on the server, from the table above |
 
-`GITHUB_TOKEN` is provided by Actions and used only to push the image; nothing to configure.
+`GITHUB_TOKEN` is provided by Actions and used only to push the image;
+nothing to configure. Since `DEPLOY_PATH` differs per app, it has to be a
+repository secret, not an organization one.
 
-Two things CI deliberately never touches, because they live only on the server: `.env` (settings and secrets) and the compose file itself. Change either - including `infra/production/docker-compose.yml` and the `Caddyfile` in mela-backend - and the server needs a `git pull` and a manual `docker compose up -d` before it takes effect.
+Two things CI never touches, because they live only on the server: `.env`
+and the compose file. Change either - including the templates in
+`infra/api/` - and the server needs the new copy and a manual
+`docker compose up -d`.
 
 ## Updating
 
-Pushing to `main` is the normal path. By hand, in `DEPLOY_PATH`:
+Pushing to `main` is the normal path. By hand, in the app's folder:
 
 ```
 docker compose pull
 docker compose up -d
 ```
 
-The `migrate` job applies any new migrations before the new backend starts. To pin one app's release rather than follow `latest`, set its `BACKEND_TAG` / `ADMIN_TAG` / `WEB_TAG` in `.env` to a commit SHA from its repository - its automatic deploys then no longer change it here, since they only move the `latest` tag. Without a registry, `git pull && docker compose up -d --build` builds the API on the server instead; the console or the player can be built in a clone of its repository with `docker build -t mela-admin .` (or `mela-web`), with `ADMIN_IMAGE` / `WEB_IMAGE` set to that name.
+To pin a release rather than follow `latest`, point that app's image setting
+in its `.env` (`API_IMAGE` for the API) at a `:<sha>` tag from its
+repository - its automatic deploys then no longer change it, since they only
+move `latest`.
 
 ## Backups
 
-The data that matters is Postgres (avatars live in the bucket). A nightly dump, e.g. from cron:
-
-```
-docker compose exec -T postgres pg_dump -U mela -d mela --format=custom > mela-$(date +%F).dump
-```
-
-Restore into an empty database with `pg_restore -U mela -d mela --clean --if-exists`. Keep copies off the server. Redis holds only rate limits, presence and queued jobs; it is persisted (AOF) but needn't be backed up.
+Mela's data is in the shared Postgres; see mela-backend's
+`infra/postgres/README.md` for the dump and restore commands. Avatars live
+in the bucket. Redis holds only rate limits, presence and queued jobs.
 
 ## The mobile app
 
@@ -107,6 +212,15 @@ and refuses to start without them.) Android release builds are signed with the u
 
 ## Notes
 
-- **Client IPs**: Caddy replaces any client-sent `X-Forwarded-For`, the console's nginx passes Caddy's through unchanged, so `TRUST_PROXY=1` is right for both paths. Keep it that way if you change the proxies, or the audit log and the rate limits see the wrong addresses.
-- **LiveKit on its own server**: use `infra/livekit/` there instead of the `livekit` profile ([features/video-provider.md](features/video-provider.md)).
-- **Logs**: `docker compose logs -f backend`. Docker's default log driver keeps them on disk without limit; set rotation in `/etc/docker/daemon.json` (`"log-opts": {"max-size": "10m", "max-file": "5"}`).
+- **Client IPs**: `TRUST_PROXY` counts the proxy hops in front of the API.
+  One reverse proxy on the VPS is `1`; the console's nginx passes the
+  proxy's headers through unchanged, so the same value is right for both
+  paths. Get it wrong and the audit log and the rate limits see the wrong
+  addresses.
+- **Logs**: `docker compose logs -f mela-api`. Docker's default log driver
+  keeps them on disk without limit; set rotation in
+  `/etc/docker/daemon.json` (`"log-opts": {"max-size": "10m", "max-file":
+  "5"}`).
+- **Migrations that fail** leave the API on the old container, because
+  `up -d` stops at the `migrate` job. Read `docker compose logs migrate`,
+  fix it, and run `docker compose up -d` again.

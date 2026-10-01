@@ -78,9 +78,9 @@ unprivileged nginx (`nginx/default.conf.template`), which forwards `/v1/*`
 to the API (`API_UPSTREAM`), answers unknown paths with `index.html` (so
 links such as `/users/<id>` open the app), and sends the security headers
 and caching rules. Put it behind HTTPS only, because the refresh cookie is
-`Secure` in production; the whole stack is in mela-backend's
-`infra/production` ([docs/deployment.md](docs/deployment.md)), which sets
-`API_UPSTREAM` and `CSP_IMG_SRC` for it. Locally, with the API running and
+`Secure` in production; on the server it runs in `/usr/src/apps/mela/admin`
+with `API_UPSTREAM` and `CSP_IMG_SRC` set in its `.env`
+([docs/deployment.md](docs/deployment.md)). Locally, with the API running and
 `.env` in place: `docker compose up -d --build` here serves it on
 `http://localhost:<ADMIN_PORT>`.
 

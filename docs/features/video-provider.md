@@ -60,13 +60,13 @@ With a single phone, `node apps/backend/scripts/livekit-fake-host.js` stands in 
 
 ## Self-hosting LiveKit (production)
 
-Runs next to the backend on the same Linux server, with Docker: the `livekit` profile of the production stack (`infra/production`, see [docs/deployment.md](../deployment.md)), which also gives it its TLS proxy. Its config is `infra/livekit/livekit.yaml`. For LiveKit on a server of its own, `infra/livekit/docker-compose.yml` runs just LiveKit there (keys in `infra/livekit/.env`, TLS proxy as in step 5).
+LiveKit is shared infrastructure on the VPS, not part of the API: it runs from `/usr/src/apps/infra/livekit`, whose files are `infra/livekit/` in mela-backend (see [docs/deployment.md](../deployment.md)). Its config is `infra/livekit/livekit.yaml`, its keys `infra/livekit/.env`. The same folder is what you copy to a server of its own, if LiveKit is ever moved off the VPS.
 
 1. **DNS**: point a subdomain, e.g. `livekit.example.com`, at the server.
 2. **Firewall**: open `80/tcp` + `443/tcp` (reverse proxy), `7881/tcp` (media over TCP) and `50000-60000/udp` (media). With ufw: `sudo ufw allow 80,443,7881/tcp && sudo ufw allow 50000:60000/udp`. Cloud providers usually also have a firewall/security group in their console - open the same ports there.
-3. **Keys**: `docker run --rm livekit/livekit-server:v1.13.7 generate-keys`, then put the pair in `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` in `infra/production/.env` (standalone: `LIVEKIT_KEYS="<api-key>: <api-secret>"` in `infra/livekit/.env`, from its `.env.example`). Never commit either file.
-4. **Start**: in `infra/production/`, set `COMPOSE_PROFILES=livekit` in `.env` and run `docker compose up -d` (standalone: `docker compose up -d` in `infra/livekit/`). With the profile in `.env` rather than a `--profile` flag, every later compose command here includes LiveKit instead of leaving it behind. It uses host networking (LiveKit's recommended setup - WebRTC needs the real UDP ports and public IP, found via STUN); signaling listens on `127.0.0.1:7880` only.
-5. **TLS**: LiveKit needs `wss://` with a certificate from a trusted CA (self-signed doesn't work). The production stack's Caddy already serves `LIVEKIT_DOMAIN` this way; standalone, proxy the subdomain to `127.0.0.1:7880` from the reverse proxy on that server. Caddy (automatic HTTPS, WebSockets work as-is):
+3. **Keys**: `docker run --rm livekit/livekit-server:v1.13.7 generate-keys`, then put the pair in `LIVEKIT_KEYS="<api-key>: <api-secret>"` in `infra/livekit/.env` (from its `.env.example`) and the same two values in the API's `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET`. Never commit either file.
+4. **Start**: `docker compose up -d` in `/usr/src/apps/infra/livekit`. It uses host networking (LiveKit's recommended setup - WebRTC needs the real UDP ports and public IP, found via STUN); signaling listens on `127.0.0.1:7880` only. That is also why the API reaches it at `http://host.docker.internal:7880` (`LIVEKIT_API_URL`) rather than by container name.
+5. **TLS**: LiveKit needs `wss://` with a certificate from a trusted CA (self-signed doesn't work). Proxy the subdomain to `127.0.0.1:7880` from the reverse proxy on that server. Caddy (automatic HTTPS, WebSockets work as-is):
    ```
    livekit.example.com {
        reverse_proxy 127.0.0.1:7880

@@ -449,7 +449,7 @@ Validated: backend `tsc`/lint clean, 479/479 tests, migration `20260927103000_ph
 - [ ] Store listing name: other Play Store apps already use "Mela" - pick a distinguishing listing title/subtitle before submitting
 - [ ] Build flavors dev / staging / prod (API and socket URLs, Agora App IDs, Firebase configs)
 - [ ] iOS build and real-device test (needs macOS + Xcode — not available on the current Windows development machine)
-- [ ] Deployment target chosen (plan §15): a server for `infra/production` (or managed Postgres + Redis instead of the bundled ones), secrets management, off-server backups; `@socket.io/redis-adapter` once there's more than one backend instance
+- [ ] Deployment target chosen (plan §15): the shared VPS (`/usr/src/apps`, `infra/api` and `infra/livekit` in mela-backend), secrets management, off-server backups; `@socket.io/redis-adapter` once there's more than one backend instance
 - [ ] Observability: crash reporting (mobile), structured logs and error tracking (backend), uptime checks
 - [ ] Store compliance: age rating and an 18+ self-declared age gate at signup for gambling-themed content, privacy policy and terms, in-app account deletion (both stores expect a deletion path for apps with sign-up — verify the current policy text)
 - [ ] Security review against plan §11 (OWASP), dependency audit (including the tracked `deepmerge-ts` advisory), rate-limit tuning

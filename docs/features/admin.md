@@ -30,6 +30,7 @@ and it can be changed later from their user page (`PATCH
 | Alerts | `VIEW_ALERTS`: sent alerts | `SEND_ALERTS`: alert one live; `SEND_GLOBAL_ALERTS`: also alert everyone |
 | Banned phrases | `VIEW_PHRASES`: the list, testing a message | `MANAGE_PHRASES`: add, change, remove |
 | Audit log | `VIEW_AUDIT_LOG`: read and export | |
+| Private messages | `VIEW_PRIVATE_MESSAGES`: read conversations between users, a day at a time - each one opened is audited | |
 
 A stronger permission includes the area's weaker ones
 (`common/permissions/admin-permissions.ts`), so a moderator who can manage
@@ -139,6 +140,23 @@ returns the same filters as CSV, capped at 10,000 rows, with a UTF-8 BOM
 for Excel and formula-neutralised cells; the export itself is audited
 (`admin.audit_exported`).
 
+### Private messages (docs/features/messages.md)
+
+The **Private messages** page (`/messages`, under Records) shows direct
+messages between users one local day at a time - today unless another day
+is picked, with previous/next day and "Today" buttons, a person search and
+`?userId=` (a user's page links there with **Private messages**). The list
+is who wrote to whom that day, how many messages and when - never the
+text. The text shows only in the conversation opened beside the list
+(both people, oldest first, when each was read), and the server records
+every conversation opened as `admin.private_messages_viewed` (target
+`CONVERSATION`, with the day's range and both user ids); the next pages of
+the same conversation aren't recorded again, and the console never
+refetches an open conversation by itself. Ranges are capped at 31 days
+(`MAX_RANGE_DAYS`). It's read-only: nothing can be edited or deleted there.
+A platform moderator needs `VIEW_PRIVATE_MESSAGES`, which a super admin
+gives them.
+
 ### REST routes (all under `/v1`, all audited)
 
 Each route needs the permission in brackets (a super admin has them all).
@@ -165,6 +183,8 @@ POST   /admin/alerts           (GLOBAL also needs SEND_GLOBAL_ALERTS)       [SEN
 GET    /admin/banned-phrases | POST /admin/banned-phrases/test             [VIEW_PHRASES]
 POST/PATCH/DELETE /admin/banned-phrases[/:id]                              [MANAGE_PHRASES]
 GET    /admin/audit-logs | /admin/audit-logs/catalog | /admin/audit-logs/export  [VIEW_AUDIT_LOG]
+GET    /admin/messages/conversations?from&to[&q&userId&page&pageSize]      [VIEW_PRIVATE_MESSAGES]
+GET    /admin/messages/conversations/:id?from&to[&cursor&limit]  (audited)  [VIEW_PRIVATE_MESSAGES]
 ```
 
 Every admin controller except sign-in/refresh/sign-out is throttled at

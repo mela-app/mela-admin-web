@@ -17,6 +17,7 @@ import { NoAccessPage, NotFoundPage, RouteErrorPage, RoutePending } from './Rout
 import {
   alertsSearch,
   auditSearch,
+  messagesSearch,
   phrasesSearch,
   safeRedirect,
   streamSearch,
@@ -134,6 +135,14 @@ const auditRoute = createRoute({
   component: lazyRouteComponent(() => import('../features/audit/AuditPage'), 'AuditPage'),
 })
 
+const messagesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/messages',
+  validateSearch: messagesSearch,
+  beforeLoad: needs('VIEW_PRIVATE_MESSAGES'),
+  component: lazyRouteComponent(() => import('../features/messages/MessagesPage'), 'MessagesPage'),
+})
+
 const staffRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/staff',
@@ -159,6 +168,7 @@ const routeTree = rootRoute.addChildren([
     alertsRoute,
     phrasesRoute,
     auditRoute,
+    messagesRoute,
     staffRoute,
     accountRoute,
   ]),

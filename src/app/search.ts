@@ -88,6 +88,25 @@ export function phrasesSearch(search: Record<string, unknown>): PhrasesSearch {
   return { q: text(search.q, 100), severity: oneOf(search.severity, ['MASK', 'REJECT'] as const) }
 }
 
+export interface MessagesSearch extends PageSearch {
+  // A local calendar day; none means today.
+  day?: string
+  q?: string
+  userId?: string
+  // The conversation open beside the list.
+  conversation?: string
+}
+
+export function messagesSearch(search: Record<string, unknown>): MessagesSearch {
+  return {
+    day: day(search.day),
+    q: text(search.q, 100),
+    userId: text(search.userId, 64),
+    conversation: text(search.conversation, 64),
+    ...pageSearch(search),
+  }
+}
+
 const CATEGORIES: readonly AuditCategory[] = [
   'AUTH',
   'ACCOUNT',

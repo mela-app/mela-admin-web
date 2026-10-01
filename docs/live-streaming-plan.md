@@ -465,10 +465,10 @@ Concrete layout and interaction rules, so every new screen extends one design la
 
 ### 6.15 Direct messages (friends only)
 *Client request, 2026-09-30.* Private one-to-one text messages - only between **friends** (people who follow each other, §6.10), so a stranger can't message anyone, and a block (which deletes follows both ways, §6.4) ends it too.
-- **Where**: home gets a third tab, **Inbox**, next to For You and Following, with a badge counting unread messages; it lists conversations newest first (last message, time, unread count). "New message" picks a friend; a friend's profile has a **Message** button.
+- **Where**: home gets a third tab, **Inbox**, next to For You and Following, with a badge counting unread messages; it lists conversations newest first (last message, time, unread count). "New message" picks a friend; a friend's profile has a **Message** button. On the share page's web player, a signed-in computer gets the same inbox in a drawer beside the live (phones use the app).
 - **Sending**: live chat's text rules (§6.3) - cleaning, the banned-phrase filter, the link policy - on messages of up to 1,000 characters, rate-limited per sender, and resend-safe (the app's `clientId`). Anyone who isn't a friend (any more) is refused; the history stays readable, and the composer says why.
 - **Delivery**: stored first, then pushed over the realtime connection to both people's `user:{id}` rooms (`message:new`), plus the recipient's unread total (`message:unread_count`). Opening a conversation marks it read (`message:read`), and the sender sees **Seen**.
-- **Privacy**: people you blocked are left out of your inbox and count; message text isn't audited, and the admin console has no view of it.
+- **Privacy**: people you blocked are left out of your inbox and count. Staff read messages only on the console's **Private messages** page (a permission of its own), a day at a time - today by default; its list shows who wrote to whom, not what, and every conversation opened is recorded in the audit log.
 - **Deferred**: push notifications for messages (needs the Firebase project, like §6.11's push), photos, group conversations.
 
 Details: docs/features/messages.md.
@@ -604,6 +604,7 @@ GET    /admin/reports | /admin/reports/:id
 POST   /admin/reports/:id/assign | /resolve | /dismiss | /reopen
 GET/POST/PATCH/DELETE /admin/banned-phrases   (writes: super admin)   POST /admin/banned-phrases/test
 GET    /admin/audit-logs | /admin/audit-logs/catalog | /admin/audit-logs/export (CSV)
+GET    /admin/messages/conversations | /admin/messages/conversations/:id   (private messages, a day at a time; opening one is audited, §6.15)
 ```
 
 ## 11. Security Checklist (OWASP-aligned)

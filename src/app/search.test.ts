@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { auditSearch, safeRedirect, streamsSearch, usersSearch } from './search'
+import { auditSearch, messagesSearch, safeRedirect, streamsSearch, usersSearch } from './search'
 
 describe('search params', () => {
   it('keeps valid filters and drops anything else', () => {
@@ -26,6 +26,19 @@ describe('search params', () => {
 
   it('only accepts real calendar-day inputs for date ranges', () => {
     expect(auditSearch({ from: '2026-09-01', to: '2026-09-30T00:00' })).toMatchObject({ from: '2026-09-01', to: undefined })
+  })
+
+  it('keeps the private messages day, person and open conversation', () => {
+    expect(messagesSearch({ day: '2026-09-29', q: ' ana ', userId: 'u1', conversation: 'c1', page: '2' })).toEqual({
+      day: '2026-09-29',
+      q: 'ana',
+      userId: 'u1',
+      conversation: 'c1',
+      page: 2,
+      pageSize: undefined,
+    })
+    // No day means today.
+    expect(messagesSearch({ day: 'yesterday' }).day).toBeUndefined()
   })
 
   it('never redirects off the console after sign-in', () => {

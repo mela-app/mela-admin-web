@@ -94,7 +94,9 @@
     Signed in (`/v1/auth/web`, docs/features/auth.md), the player joins
     the room as the account (`stream:join`) and chats, likes and follows
     for real; a Follow tapped before signing in goes through after. The
-    stage stays app-only: "Join the stage" shows the QR code.
+    stage stays app-only: "Join the stage" shows the QR code. Signed in,
+    an **Inbox** button with the unread count opens their direct messages
+    in a drawer beside the live (docs/features/messages.md).
   - **Sound**: browsers hold sound back until the first tap; the player
     shows "Tap to unmute", and any tap on the page unmutes.
   - **Where "Get the app" goes**: `ANDROID_INSTALL_URL` (default: the Play

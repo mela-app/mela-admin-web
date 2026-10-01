@@ -14,6 +14,7 @@ export type AdminPermission =
   | 'VIEW_PHRASES'
   | 'MANAGE_PHRASES'
   | 'VIEW_AUDIT_LOG'
+  | 'VIEW_PRIVATE_MESSAGES'
 export type UserStatus = 'ACTIVE' | 'SUSPENDED'
 export type SessionPlatform = 'ANDROID' | 'IOS' | 'WEB' | 'UNKNOWN'
 export type StreamStatus = 'SCHEDULED' | 'LIVE' | 'ENDED' | 'LOCKED'
@@ -264,4 +265,34 @@ export interface AuditCatalog {
   categories: Array<{ value: AuditCategory; label: string }>
   actions: Array<{ value: string; label: string; category: AuditCategory }>
   actorRoles: Array<{ value: AuditActorRole; label: string }>
+}
+
+// Direct messages between users - who wrote to whom, without the text.
+export interface PrivateConversationRow {
+  id: string
+  people: [Person, Person]
+  // In the range asked for.
+  messageCount: number
+  firstMessageAt: string
+  lastMessageAt: string
+}
+
+export interface PrivateConversationPage extends Page<PrivateConversationRow> {
+  messageCount: number
+}
+
+export interface PrivateMessage {
+  id: string
+  senderId: string
+  text: string
+  createdAt: string
+  readAt: string | null
+}
+
+// Opening one is recorded in the audit log.
+export interface PrivateTranscript {
+  id: string
+  people: [Person, Person]
+  messages: PrivateMessage[]
+  nextCursor: string | null
 }

@@ -4,6 +4,7 @@ import {
   LogOut,
   Megaphone,
   Menu,
+  MessagesSquare,
   Radio,
   ScrollText,
   Settings,
@@ -26,7 +27,7 @@ import { ConfirmDialog } from '../components/ui/Dialog'
 import { Avatar } from '../components/ui/misc'
 import { IconButton } from '../components/ui/Button'
 
-type NavTarget = '/' | '/streams' | '/users' | '/staff' | '/alerts' | '/phrases' | '/audit'
+type NavTarget = '/' | '/streams' | '/users' | '/staff' | '/alerts' | '/phrases' | '/audit' | '/messages'
 
 interface NavItem {
   to: NavTarget
@@ -131,7 +132,10 @@ function Sidebar() {
     },
     {
       label: 'Records',
-      items: [{ to: '/audit', label: 'Audit log', icon: ScrollText, needs: 'VIEW_AUDIT_LOG' }],
+      items: [
+        { to: '/audit', label: 'Audit log', icon: ScrollText, needs: 'VIEW_AUDIT_LOG' },
+        { to: '/messages', label: 'Private messages', icon: MessagesSquare, needs: 'VIEW_PRIVATE_MESSAGES' },
+      ],
     },
   ]
   const visible = sections

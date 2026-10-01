@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayBoundary, formatDuration, formatRelative, initials } from './format'
+import { addDays, dayBoundary, formatDay, formatDuration, formatRelative, initials, localDay } from './format'
 
 describe('format', () => {
   it('shows how long a live ran', () => {
@@ -29,5 +29,19 @@ describe('format', () => {
     expect(initials('Tsegaye Abewa')).toBe('TA')
     expect(initials('mia')).toBe('MI')
     expect(initials('  ')).toBe('?')
+  })
+
+  it('steps through local calendar days, across months and years', () => {
+    expect(localDay(new Date(2026, 8, 30, 23, 59))).toBe('2026-09-30')
+    expect(addDays('2026-09-30', 1)).toBe('2026-10-01')
+    expect(addDays('2026-01-01', -1)).toBe('2025-12-31')
+    expect(addDays('2024-02-28', 1)).toBe('2024-02-29')
+  })
+
+  it('names today and yesterday, and spells out other days', () => {
+    const now = new Date(2026, 8, 30, 12)
+    expect(formatDay('2026-09-30', now)).toBe('Today')
+    expect(formatDay('2026-09-29', now)).toBe('Yesterday')
+    expect(formatDay('2026-09-01', now)).toMatch(/2026/)
   })
 })

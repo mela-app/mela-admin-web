@@ -14,6 +14,7 @@ describe('access levels', () => {
     expect(levelOf(area('users'), ['VIEW_USERS'])?.value).toBe('view')
     expect(levelOf(area('users'), ['VIEW_USERS', 'MANAGE_USERS'])?.value).toBe('manage')
     expect(levelOf(area('alerts'), ['VIEW_ALERTS', 'SEND_ALERTS', 'SEND_GLOBAL_ALERTS'])?.value).toBe('everyone')
+    expect(levelOf(area('messages'), ['VIEW_PRIVATE_MESSAGES'])?.value).toBe('read')
   })
 
   it('changes one area and leaves the others alone', () => {

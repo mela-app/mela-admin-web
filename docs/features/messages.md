@@ -1,6 +1,6 @@
 # Direct messages (friends only)
 
-**Location**: `apps/backend/src/direct-messages` (+ `prisma` models `Conversation`, `DirectMessage`), relays in `apps/backend/src/realtime/realtime.gateway.ts`; mobile `apps/mobile/lib/features/messages`, the Inbox tab in `lib/features/discovery/discovery_screen.dart`, the Message button in `lib/features/social/presentation/profile_screen.dart`
+**Location**: `apps/backend/src/direct-messages` (+ `prisma` models `Conversation`, `DirectMessage`), relays in `apps/backend/src/realtime/realtime.gateway.ts`, the console's reader in `apps/backend/src/admin/messages`; mobile `apps/mobile/lib/features/messages`, the Inbox tab in `lib/features/discovery/discovery_screen.dart`, the Message button in `lib/features/social/presentation/profile_screen.dart`; web player `apps/web/src/messages`; console `apps/admin-web/src/features/messages`
 **Plan reference**: plan §6.15 (client request, 2026-09-30)
 **Depends on**: `social` (`SocialService.isFriend` - who may message whom), `chat` (`cleanChatText`, `BannedPhrasesService`, the link policy - the same text rules as live chat), `common/rate-limit`, `common/events`, `auth` (the JWT guard)
 **Depended on by**: `realtime` (relays `direct_message.sent`/`direct_message.read` to the two people's `user:{id}` rooms) - nothing imports `DirectMessagesModule`
@@ -44,7 +44,7 @@ Two people who **follow each other** (friends, plan §6.10) can send each other 
 | `message:read` | `{readerId, partnerId, readAt}` | both - the partner's app shows Seen, the reader's other devices clear the conversation |
 | `message:unread_count` | `{count}` | the person whose total changed (a new message to them, or they read). A **total**, unlike `notification:unread_count`'s delta: one COUNT per message is cheap here (one recipient, not a fan-out), and a missed event can't leave the badge wrong |
 
-Message text never goes into domain-event listeners other than the gateway: the audit trail doesn't record direct messages, and the admin console can't read them.
+Message text never goes into domain-event listeners other than the gateway, and the audit trail doesn't record what anyone wrote. Staff read it only through the console's **Private messages** page (below), and every conversation they open there is audited.
 
 ## Mobile (`lib/features/messages`)
 
@@ -53,6 +53,25 @@ Message text never goes into domain-event listeners other than the gateway: the 
 - **Inbox tab** (`presentation/inbox_view.dart`): discovery's header gets a third tab, **Inbox**, with a `Badge` (`formatCount`). Selected, it replaces the category chips and lives grid with `InboxView` (the tabs stay on top and scroll with it; For You / Following bring the lives back as they were). Rows: the friend's avatar and name, the last message ("You: ..." for your own), a short time ("now", "5m", "3h", "Mon", "Sep 3" - `message_time.dart`), and an unread count; unread rows are bold. `message:new` moves (or adds) the conversation to the top, `message:read` clears a count read on another device. Pull to refresh; the next page loads near the end. "New message" opens a picker of friends (`new_message_sheet.dart`, `GET /users/me/friends`), and the list reloads on the way back from a conversation.
 - **Conversation** (`presentation/conversation_screen.dart`, route `/messages/:userId`, `AppRoutes.conversation`; the caller passes the `UserSummary` as `extra` to show the header at once): newest at the bottom, older messages load when scrolling up, a time label wherever 30 minutes pass between messages. A sent message shows at once (faded, "Sending…"), with a random `clientId`; the answer and the realtime echo are matched by id, so it never shows twice. A failed send stays with the reason and **Try again** (same `clientId` - safe) / **Remove**; `NOT_FRIENDS` also locks the composer. Your last message says **Sent**, then **Seen**. It marks the conversation read when it opens and when a message arrives while it's on screen - not with the app in the background (it does on resume) or under another screen. A reconnect reloads the latest page. The title opens the friend's profile.
 - **Profile**: another user's profile shows a round **Message** button next to Follow and the bell while you follow each other (`isFollowing && isFollowedBy`).
+
+## Web player (`apps/web/src/messages`)
+
+Signed in on a computer, the share page's player (docs/features/share.md) has an **Inbox** button beside the account - with the unread count - that opens the same inbox in a drawer at the right edge, over the live chat, so the live keeps playing (`Modal variant="drawer"`). Phones have messaging in the app, so the player shows no Inbox there, and neither does a signed-out visitor.
+
+- **Data**: `messagesApi.ts` - the five endpoints and `GET /users/me/friends`, with the web session's token.
+- **Realtime**: the player's own socket - the account's, while signed in and watching - carries `message:new`, `message:read` and `message:unread_count`; `useLive` hands them, and each reconnect, to `live.inbox` (`createInboxEvents()`), which the inbox's parts subscribe to.
+- **Badge**: `useUnreadMessages` - fetched when signed in and on every reconnect, then set by `message:unread_count`.
+- **Inbox** (`Inbox.tsx`): the conversation list (updated live, "Show more" for the next page), **New message** (a friend to write to), and a conversation - newest at the bottom, "Show earlier messages", a time label after 30-minute gaps, a message shown at once and matched to its echo by id, Sent/Seen, **Try again** / **Remove** for a failed send, the locked note once they no longer follow each other. It marks the conversation read while the tab is visible, and when it becomes visible again.
+- Server refusals reach the page with their code: `ApiError.code` (`lib/api.ts`) reads the API's `{message: {message, code}}` error body - which also gives the web sign-in its real messages.
+
+## Admin console (`apps/admin-web/src/features/messages`)
+
+The **Private messages** page (`/messages`, under Records) - for super admins, and platform moderators given `VIEW_PRIVATE_MESSAGES` ("Private messages: Read"):
+
+- **A day at a time, today by default**: previous/next day, a date picker and "Today"; a person search, and `?userId=` from a user's page (**Private messages**).
+- **The list is who, not what**: each conversation active that day, both people, how many messages, the last one's time - latest first, 25 a page. `GET /v1/admin/messages/conversations?from&to[&q&userId&page&pageSize]` (`AdminMessagesService.conversations`, a `groupBy` over the day's messages) returns no text at all.
+- **The text shows only in the conversation opened** beside the list - both people, oldest first, when each message was read. `GET /v1/admin/messages/conversations/:id?from&to[&cursor&limit]` records every conversation opened in the audit trail as `admin.private_messages_viewed` (target `CONVERSATION`, labelled `@a and @b`, with the day's range and both user ids); the next pages of the same look aren't recorded again, and the console never refetches an open conversation by itself. The audit entry links back to the same conversation and day.
+- A range is at most 31 days (`MAX_RANGE_DAYS`). Read-only: nothing can be edited or deleted there.
 
 ## How to add to this feature
 
@@ -69,9 +88,11 @@ Message text never goes into domain-event listeners other than the gateway: the 
 
 ## How to remove this feature
 
-Remove `DirectMessagesModule` from `app.module.ts`, the two `@OnEvent` relays (`handleDirectMessageSent`, `handleDirectMessagesRead`) from `RealtimeGateway` and the two events from `domain-events.ts`; drop the `conversations` and `direct_messages` tables (and the `User` relations) in a migration. On mobile: `lib/features/messages`, `messagesRepositoryProvider`, the Inbox tab (`_InboxTab`, `_showInbox`) in `discovery_screen.dart`, the `/messages/:userId` route and the Message button (`_CircleAction`) in `profile_screen.dart`. `cleanChatText`'s `maxLength` parameter defaults to chat's, so it can stay.
+Remove `DirectMessagesModule` from `app.module.ts`, the two `@OnEvent` relays (`handleDirectMessageSent`, `handleDirectMessagesRead`) from `RealtimeGateway` and the two events from `domain-events.ts`; drop the `conversations` and `direct_messages` tables (and the `User` relations) in a migration. On mobile: `lib/features/messages`, `messagesRepositoryProvider`, the Inbox tab (`_InboxTab`, `_showInbox`) in `discovery_screen.dart`, the `/messages/:userId` route and the Message button (`_CircleAction`) in `profile_screen.dart`. `cleanChatText`'s `maxLength` parameter defaults to chat's, so it can stay. Web player: `src/messages`, `inbox` in `useLive` and the Inbox button in `App.tsx`. Console: `src/admin/messages` (backend), `features/messages`, the route, the nav item and the access area; the `VIEW_PRIVATE_MESSAGES` enum value can stay until a migration removes it.
 
 ## Tests
 
-- Backend: `direct-messages.service.spec.ts` (only friends; yourself; empty/too long; the phrase filter; links; pace; resend by `clientId`, reused `clientId`, the resend race; the inbox's partners, unread counts, `canMessage`, the blocked filter and paging; history windows; read receipts and their event; the badge count leaving blocked senders out) and `realtime.gateway.spec.ts` ("direct messages": which room gets which event).
+- Backend: `direct-messages.service.spec.ts` (only friends; yourself; empty/too long; the phrase filter; links; pace; resend by `clientId`, reused `clientId`, the resend race; the inbox's partners, unread counts, `canMessage`, the blocked filter and paging; history windows; read receipts and their event; the badge count leaving blocked senders out), `realtime.gateway.spec.ts` ("direct messages": which room gets which event) and `admin/messages/admin-messages.service.spec.ts` (the list carries no text, the day's range and person filters, bad ranges, the transcript's order and paging, one audit entry per conversation opened, an unknown conversation).
 - Mobile: `test/messages_repository_test.dart` (endpoints and parsing, realtime payloads, the badge on connect and on `message:unread_count`), `test/conversation_screen_test.dart` (order, read on open, Seen, the pending bubble and its echo, the locked composer, `NOT_FRIENDS`, retry with the same `clientId`, live arrivals, other conversations ignored) and `test/inbox_test.dart` (the whole app: the tab's badge, rows, a new conversation moving up, a read on another device, back to the lives; the profile's Message button only between friends).
+- Web player: `src/messages/Inbox.test.tsx` (rows kept up to date by new messages and reads; opening a conversation reads it, a sent message shows at once and once only, Seen; `NOT_FRIENDS` locks it; a new conversation with a friend) and `src/App.test.tsx` (the Inbox button and its count for a signed-in computer - none on phones or signed out).
+- Console: `search.test.ts` (the page's URL), `format.test.ts` (stepping through days, "Today"/"Yesterday") and `permissions.test.tsx` (the "Private messages" access area).

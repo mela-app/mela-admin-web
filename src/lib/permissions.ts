@@ -82,6 +82,18 @@ export const ACCESS_AREAS: AccessArea[] = [
       { value: 'view', label: 'View', description: 'Read and export everything that was recorded.', grants: ['VIEW_AUDIT_LOG'] },
     ],
   },
+  {
+    key: 'messages',
+    label: 'Private messages',
+    levels: [
+      {
+        value: 'read',
+        label: 'Read',
+        description: 'Read conversations between users, a day at a time. Every conversation opened is recorded in the audit log.',
+        grants: ['VIEW_PRIVATE_MESSAGES'],
+      },
+    ],
+  },
 ]
 
 /** The strongest level of [area] that [permissions] fully covers, or null for no access. */

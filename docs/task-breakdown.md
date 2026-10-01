@@ -364,6 +364,8 @@ Deliberately after Phase 4: don't amplify reach (notifications, share links) bef
 - [x] `/me/conversations` REST: the inbox (newest first, unread count per conversation, `canMessage`), the unread total, a conversation's history (`before`), send, mark read. Only friends (mutual follows) can send - `403 NOT_FRIENDS` otherwise; live chat's text rules (cleaning up to 1000 characters, phrase filter, link policy); 5 at once, then one a second; resend-safe by `clientId`; people you blocked are left out of the inbox and the count
 - [x] Realtime to both people's `user:{id}` rooms: `message:new`, `message:read`, and `message:unread_count` (a total)
 - [x] App: an **Inbox** tab next to Following with the unread badge; the conversation list; a conversation screen (a message shows at once, with retry; Sent/Seen; earlier messages on scrolling up; read on open; locked with a note once they no longer follow each other); "New message" picks a friend; a Message button on a friend's profile
+- [x] Web player (computers, signed in): an Inbox button with the unread count opens the same inbox in a drawer beside the live - list, new message, conversation, Sent/Seen, live updates over the player's socket
+- [x] Console: **Private messages** (`VIEW_PRIVATE_MESSAGES`, migration `20261001100000_private_messages_permission`) - one day at a time, today by default; the list is who wrote to whom without text; opening a conversation shows it and is recorded in the audit log (`admin.private_messages_viewed`); read-only
 - [ ] Push notifications for messages while the app is closed - needs the Firebase project, like the other push types
 - [ ] Device check: two phones messaging each other, the badge and Seen updating live
 

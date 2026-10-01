@@ -10,7 +10,7 @@ import { EmptyState } from '../../components/ui/feedback'
 import { DescriptionList } from '../../components/ui/Card'
 import { Identifier, RelativeTime } from '../../components/ui/misc'
 import { useAuth } from '../../lib/auth-context'
-import { formatPrecise, formatTimestamp } from '../../lib/format'
+import { formatPrecise, formatTimestamp, localDay } from '../../lib/format'
 import { ACTOR_ROLE_LABELS } from '../../lib/labels'
 import { useAuditLog } from '../../lib/queries'
 import { DEFAULT_PAGE_SIZE } from '../../lib/search'
@@ -22,6 +22,7 @@ const TARGET_NAMES: Record<string, string> = {
   MESSAGE: 'Chat message',
   ALERT: 'Alert',
   PHRASE: 'Banned phrase',
+  CONVERSATION: 'Private conversation',
 }
 
 interface AuditTableProps {
@@ -301,6 +302,21 @@ function TargetLink({ entry, onNavigate }: { entry: AuditEntry; onNavigate: () =
           {label}
         </Link>
       )
+    case 'CONVERSATION': {
+      if (!auth.can('VIEW_PRIVATE_MESSAGES')) break
+      // The day that was read - opening the link is itself recorded.
+      const from = typeof entry.metadata?.from === 'string' ? entry.metadata.from : null
+      return (
+        <Link
+          to="/messages"
+          search={{ conversation: entry.targetId, day: from ? localDay(from) : undefined }}
+          onClick={onNavigate}
+          className={className}
+        >
+          {label}
+        </Link>
+      )
+    }
   }
   return <span className="font-medium">{label}</span>
 }

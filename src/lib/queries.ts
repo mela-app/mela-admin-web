@@ -20,6 +20,8 @@ import type {
   Page,
   PhraseTestResult,
   PlatformRole,
+  PrivateConversationPage,
+  PrivateTranscript,
   StaffMember,
   StaffRole,
   StreamDetail,
@@ -29,6 +31,7 @@ import type {
 } from './types'
 import type {
   AuditSearch,
+  MessagesSearch,
   StreamsSearch,
   UsersSearch,
 } from '../app/search'
@@ -204,6 +207,45 @@ export function useMySessions() {
   return useQuery({
     queryKey: ['me', 'sessions'],
     queryFn: ({ signal }) => api<{ items: DeviceSession[] }>('/admin/me/sessions', { signal }),
+  })
+}
+
+interface DayRange {
+  from: string
+  to: string
+}
+
+/** Who wrote to whom in [range] - no text; today's list keeps itself current. */
+export function usePrivateConversations(search: MessagesSearch, range: DayRange, isToday: boolean) {
+  return useQuery({
+    queryKey: ['private-messages', 'conversations', search.q, search.userId, paging(search), range],
+    queryFn: ({ signal }) =>
+      api<PrivateConversationPage>('/admin/messages/conversations', {
+        signal,
+        query: { ...range, q: search.q, userId: search.userId, ...paging(search) },
+      }),
+    placeholderData: keepPreviousData,
+    refetchInterval: isToday ? 30_000 : false,
+  })
+}
+
+/**
+ * One conversation's messages in [range]. The server records every first
+ * page it hands out, so this never refetches by itself: one look, one entry.
+ */
+export function usePrivateTranscript(conversationId: string, range: DayRange) {
+  return useInfiniteQuery({
+    queryKey: ['private-messages', 'transcript', conversationId, range],
+    queryFn: ({ signal, pageParam }) =>
+      api<PrivateTranscript>(`/admin/messages/conversations/${id(conversationId)}`, {
+        signal,
+        query: { ...range, cursor: pageParam, limit: 100 },
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 }
 

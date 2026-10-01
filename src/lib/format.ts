@@ -90,6 +90,29 @@ export function dayBoundary(day: string | undefined, edge: 'start' | 'end'): str
   return local.toISOString()
 }
 
+/** The local calendar day of [value], as a `<input type="date">` value. */
+export function localDay(value: string | Date = new Date()): string {
+  const date = toDate(value)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+/** [day] moved by [days] calendar days. */
+export function addDays(day: string, days: number): string {
+  const [year, month, date] = day.split('-').map(Number)
+  return localDay(new Date(year, month - 1, date + days))
+}
+
+const weekdayDate = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+
+/** "Today", "Yesterday", or the full date of a `<input type="date">` value. */
+export function formatDay(day: string, now: Date = new Date()): string {
+  if (day === localDay(now)) return 'Today'
+  if (day === addDays(localDay(now), -1)) return 'Yesterday'
+  const [year, month, date] = day.split('-').map(Number)
+  return weekdayDate.format(new Date(year, month - 1, date))
+}
+
 export function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean)
   const letters = words.length > 1 ? words[0][0] + words[words.length - 1][0] : (words[0] ?? '?').slice(0, 2)

@@ -85,12 +85,11 @@ and caching rules. Put it behind HTTPS only, because the refresh cookie is
 `http://localhost:<ADMIN_PORT>`.
 
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) lints, tests and
-builds every push. CD ([.github/workflows/cd.yml](.github/workflows/cd.yml))
+builds every pull request. CD ([.github/workflows/cd.yml](.github/workflows/cd.yml))
 builds `ghcr.io/<owner>/mela-admin` on `main` - only when something that
 goes into the image changes, never for docs - then, over SSH, restarts just
 the console. Its secrets (repository or organization): `SERVER_HOST`,
-`SERVER_USER`, `SERVER_SSH_KEY` (or `SERVER_PASSWORD`),
-`SERVER_SSH_FINGERPRINT`, `DEPLOY_PATH`.
+`SERVER_USER`, `SERVER_PASSWORD`, `DEPLOY_PATH`.
 
 The sign-in page's footer shows `version` from `package.json` (injected as
 `__APP_VERSION__` by `vite.config.ts`) - bump it with each release.

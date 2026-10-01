@@ -40,17 +40,17 @@ All three app images run as unprivileged users, with a Docker `HEALTHCHECK` (`/h
 
 ## Continuous delivery
 
-Each app deploys on its own, from its own repository's `.github/workflows/cd.yml`, when something that goes into its image changes on `main` (or by hand from the Actions tab) - a docs change deploys nothing. Each workflow runs one deploy of its app at a time.
+Each app deploys on its own, from its own repository's `.github/workflows/cd.yml`, on every push to `main` (or by hand from the Actions tab). Each workflow runs one deploy of its app at a time.
 
 | Repository | Builds and pushes | Then, over SSH |
 | --- | --- | --- |
-| mela-backend | `ghcr.io/<owner>/mela-backend:latest` + `:<sha>` | `pull backend`, `run --rm migrate`, `up -d --no-deps backend` |
+| mela-backend | `ghcr.io/<owner>/mela-backend:latest` + `:<sha>` | `down`, `pull`, `up -d` (the whole stack) |
 | mela-admin-web | `ghcr.io/<owner>/mela-admin:latest` + `:<sha>` | `pull admin`, `up -d --no-deps admin` |
 | mela-web | `ghcr.io/<owner>/mela-web:latest` + `:<sha>` | `pull web`, `up -d --no-deps web` |
 
-`--no-deps` is what keeps them independent: each workflow recreates one container and leaves Caddy, Postgres, Redis, LiveKit and the other apps running. A console release never restarts the API, and an API release never interrupts the console beyond the API calls it makes while the new container starts. The migrations run on the new image, in a one-shot `migrate` container, before the API is swapped.
+`--no-deps` is what keeps the two front ends independent: each of those workflows recreates one container and leaves Caddy, Postgres, Redis, LiveKit and the other apps running. A console release never restarts the API. The API's own deploy restarts the stack (`down` then `up -d`), and `migrate` runs first on the new image, before the API serves anything, because the backend depends on it.
 
-Tests run on every push and pull request, in each repository's `ci.yml`: `backend-ci`, `admin-web-ci`, `web-ci`, `mobile-ci` (plus `mobile-native-builds` when native files change).
+Tests run on every pull request, in each repository's `ci.yml` (all named `CI`), plus `mobile-native-builds` when the mobile app's native files change.
 
 The same secrets drive the deploy step in each of the three repositories - **Settings > Secrets and variables > Actions**, or once for all of them as organization secrets:
 
@@ -58,9 +58,7 @@ The same secrets drive the deploy step in each of the three repositories - **Set
 | --- | --- |
 | `SERVER_HOST` | the server's hostname or IP |
 | `SERVER_USER` | an SSH user in the `docker` group (not root) |
-| `SERVER_SSH_KEY` | a private key made for deploys only (`ssh-keygen -t ed25519 -f mela-deploy`), whose public half is in that user's `~/.ssh/authorized_keys` |
-| `SERVER_SSH_FINGERPRINT` | the server's SSH host key fingerprint (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the server, the `SHA256:...` part), so nothing else can pose as the server |
-| `SERVER_PASSWORD` | only while there is no key: that user's SSH password - remove it once the key works, and turn off password logins on the server |
+| `SERVER_PASSWORD` | that user's SSH password |
 | `DEPLOY_PATH` | the directory holding `.env` and `docker-compose.yml` on the server, e.g. `/srv/mela-backend/infra/production` |
 
 `GITHUB_TOKEN` is provided by Actions and used only to push the image; nothing to configure.

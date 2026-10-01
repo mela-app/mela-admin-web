@@ -1,30 +1,17 @@
-name: admin-web-cd
+name: CD
 
 # Builds the admin console, pushes it to GHCR, then restarts just the console
 # on the production server. The API keeps serving throughout - see
 # docs/deployment.md.
 #
 # Secrets (repository or organization): SERVER_HOST, SERVER_USER,
-# SERVER_SSH_KEY (or SERVER_PASSWORD), SERVER_SSH_FINGERPRINT, DEPLOY_PATH.
+# SERVER_PASSWORD, DEPLOY_PATH.
 
 on:
   push:
     branches:
-      - main
-    # What goes into the image - a docs or branding change deploys nothing.
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'nginx/**'
-      - 'index.html'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'tsconfig*.json'
-      - 'vite.config.ts'
-      - 'Dockerfile'
-      - '.dockerignore'
-      - '.github/workflows/cd.yml'
-  workflow_dispatch:  # Redeploy the console unchanged, from the Actions tab
+      - main   # Trigger Production deploy
+  workflow_dispatch:  # Manual run from Actions tab
 
 # One deploy of the console at a time.
 concurrency:
@@ -33,7 +20,6 @@ concurrency:
 
 jobs:
   build-and-deploy-production:
-    name: Build and deploy the admin console
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -72,14 +58,10 @@ jobs:
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
-          # A deploy key; the password is only a fallback while there is none.
-          key: ${{ secrets.SERVER_SSH_KEY }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          # The server's host key, so nothing else can pose as it.
-          fingerprint: ${{ secrets.SERVER_SSH_FINGERPRINT }}
           script_stop: true
           script: |
-            echo "Deploying the admin console..."
+            echo "🚀 Deploying to Production..."
 
             # The server pulls with its own read-only registry login
             # (docs/deployment.md): no token of this job is left behind there.

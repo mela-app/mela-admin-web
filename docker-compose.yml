@@ -9,7 +9,9 @@
 # cookie needs.
 services:
   admin:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: mela-admin:local
     restart: unless-stopped
     environment:

@@ -47,8 +47,6 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          cache-from: type=gha,scope=mela-admin
-          cache-to: type=gha,mode=max,scope=mela-admin
           tags: |
             ghcr.io/${{ env.REPO_OWNER_LOWER }}/mela-admin:latest
             ghcr.io/${{ env.REPO_OWNER_LOWER }}/mela-admin:${{ github.sha }}

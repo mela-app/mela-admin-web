@@ -13,11 +13,6 @@ on:
       - main   # Trigger Production deploy
   workflow_dispatch:  # Manual run from Actions tab
 
-# One deploy of the console at a time.
-concurrency:
-  group: cd-production-admin
-  cancel-in-progress: false
-
 jobs:
   build-and-deploy-production:
     runs-on: ubuntu-latest

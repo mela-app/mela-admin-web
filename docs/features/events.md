@@ -35,6 +35,17 @@ Phase 7 (mute suite, plan §6.7) added two, both relayed by `RealtimeGateway`:
 the room, plus a private `force_mute_audio` to the guest on a lock). Both
 carry `actorId` for the audit trail, like the Phase 4 moderation events.
 
+`guest.placement_changed` (`GuestsService`, 2026-10): the host or an
+`ARRANGE_GUESTS` moderator moved a guest's tile, or put it back in line -
+`{streamId, userId, actorId, placement}`. `RealtimeGateway` relays it to the
+room as `guest:placed`. Not audited.
+
+`app_release.changed` (`AdminReleasesService`, 2026-10): an app update was
+published, edited or withdrawn - `{change, releaseId, actorId, platform,
+version, build, required, fields?}`. `RealtimeGateway` relays it to every
+socket as `app:update {platform}`, and `AuditEventsListener` records it as
+`app.release_<change>` (docs/features/app-updates.md).
+
 `recording_permission.changed` (`RecordingPermissionsService`, 2026-09-30):
 the host let a viewer record their live or took it back - relayed only to
 that viewer's `user:{id}` room as `recording:permission {streamId, allowed}`
@@ -47,6 +58,12 @@ their partner sent. `RealtimeGateway` relays them to both people's
 `message:unread_count` (a total) to whoever's badge changed
 (docs/features/messages.md). Only the gateway listens - message text never
 reaches the audit trail.
+
+`live.access_revoked` (`StreamsService.handleUserBlocked`, 2026-10): a block
+between a running live's host and someone in it took that person out -
+`{streamId, hostId, userId, removedByHost}`. `RealtimeGateway` takes their
+sockets out of the live's room and, when the host was the blocker, sends
+them `force_disconnect` (scope `SESSION`). Not audited (`user.blocked` is).
 
 Phase 8 (admin console, plan §6.8) made the bus the audit trail's only
 input: `AuditEventsListener` (`src/audit`) turns events from every module

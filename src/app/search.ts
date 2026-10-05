@@ -107,6 +107,27 @@ export function messagesSearch(search: Record<string, unknown>): MessagesSearch 
   }
 }
 
+export interface LiveChatSearch extends PageSearch {
+  // A local calendar day; none means today.
+  day?: string
+  q?: string
+  // The host whose chat shows beside the list.
+  host?: string
+}
+
+export function liveChatSearch(search: Record<string, unknown>): LiveChatSearch {
+  return {
+    day: day(search.day),
+    q: text(search.q, 100),
+    host: text(search.host, 64),
+    ...pageSearch(search),
+  }
+}
+
+export function appUpdatesSearch(search: Record<string, unknown>): PageSearch {
+  return pageSearch(search)
+}
+
 const CATEGORIES: readonly AuditCategory[] = [
   'AUTH',
   'ACCOUNT',

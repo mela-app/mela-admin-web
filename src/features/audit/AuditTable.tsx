@@ -23,6 +23,7 @@ const TARGET_NAMES: Record<string, string> = {
   ALERT: 'Alert',
   PHRASE: 'Banned phrase',
   CONVERSATION: 'Private conversation',
+  APP_RELEASE: 'App update',
 }
 
 interface AuditTableProps {
@@ -317,6 +318,14 @@ function TargetLink({ entry, onNavigate }: { entry: AuditEntry; onNavigate: () =
         </Link>
       )
     }
+    case 'APP_RELEASE':
+      // A withdrawn update is gone; the page still shows the ones published since.
+      if (!auth.can('VIEW_APP_RELEASES')) break
+      return (
+        <Link to="/app-updates" onClick={onNavigate} className={className}>
+          {label}
+        </Link>
+      )
   }
   return <span className="font-medium">{label}</span>
 }

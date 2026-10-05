@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { auditSearch, messagesSearch, safeRedirect, streamsSearch, usersSearch } from './search'
+import { appUpdatesSearch, auditSearch, liveChatSearch, messagesSearch, safeRedirect, streamsSearch, usersSearch } from './search'
 
 describe('search params', () => {
   it('keeps valid filters and drops anything else', () => {
@@ -39,6 +39,18 @@ describe('search params', () => {
     })
     // No day means today.
     expect(messagesSearch({ day: 'yesterday' }).day).toBeUndefined()
+  })
+
+  it('keeps the live chat day, host search and open host', () => {
+    expect(liveChatSearch({ day: '2026-10-04', q: ' ana ', host: 'u1', page: '2', conversation: 'c1' })).toEqual({
+      day: '2026-10-04',
+      q: 'ana',
+      host: 'u1',
+      page: 2,
+      pageSize: undefined,
+    })
+    expect(liveChatSearch({}).day).toBeUndefined()
+    expect(appUpdatesSearch({ page: '3', platform: 'IOS' })).toEqual({ page: 3, pageSize: undefined })
   })
 
   it('never redirects off the console after sign-in', () => {

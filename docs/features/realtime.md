@@ -42,6 +42,7 @@ One Socket.IO gateway (`RealtimeGateway`), and one app-wide connection per signe
 | `guest_request:cancelled` | `{streamId, requestId, initiatedBy, recipientIds}` | the same recipients as the original request/invite |
 | `guest:joined` | `{streamId, user, agoraUid}` | the room |
 | `guest:removed` | `{streamId, hostId, userId, wasRemovedByHostOrModerator}` | the room |
+| `guest:placed` | `{streamId, userId, placement}` - `{x, y, size}`, or null for the automatic column (docs/features/guests.md) | the room |
 | `you_were_removed` | `{streamId, hostId}` | the removed guest's `user:{id}` - only when the host or a moderator removed them |
 | `chat:muted` | `{streamId, mutedUntil}` | the muted user's `user:{id}` only - the room never learns who is muted (plan §6.7); `mutedUntil` null = until the live ends |
 | `chat:unmuted` | `{streamId}` | the same user's `user:{id}` |
@@ -54,6 +55,7 @@ One Socket.IO gateway (`RealtimeGateway`), and one app-wide connection per signe
 | `message:new` | `{message, sender, recipient}` | both people's `user:{id}` - a direct message between friends (docs/features/messages.md); the sender's other devices get it too |
 | `message:read` | `{readerId, partnerId, readAt}` | both people's `user:{id}` - the partner's app shows Seen, the reader's other devices clear the conversation |
 | `message:unread_count` | `{count}` | the `user:{id}` whose unread total changed - the Inbox badge (a total, not a delta) |
+| `app:update` | `{platform}` | every connected socket - an app update for that platform was published, edited or withdrawn; the app asks `GET /v1/app/update` again (docs/features/app-updates.md) |
 
 The `user.suspended` and `user.sessions_revoked` events force-disconnect that user's sockets through `user:{id}`; their sessions were ended too, so the reconnect is refused. `RealtimeGateway.connectedCount(streamId?)` tells the console how many devices an alert would reach.
 

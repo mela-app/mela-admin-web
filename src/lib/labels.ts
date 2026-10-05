@@ -1,5 +1,6 @@
 import type {
   AlertSeverity,
+  AppPlatform,
   AuditActorRole,
   BannedPhraseSeverity,
   ChatModerationStatus,
@@ -67,6 +68,7 @@ export const CAPABILITY_LABELS: Record<ModeratorCapability, string> = {
   MANAGE_GUEST_REQUESTS: 'Stage requests',
   REMOVE_GUESTS: 'Remove guests',
   FORCE_MUTE_GUESTS: 'Mute guests',
+  ARRANGE_GUESTS: 'Arrange guests',
 }
 
 export const PHRASE_SEVERITY_LABELS: Record<BannedPhraseSeverity, string> = {
@@ -85,6 +87,11 @@ export const PLATFORM_LABELS: Record<SessionPlatform, string> = {
   IOS: 'iOS app',
   WEB: 'Admin console',
   UNKNOWN: 'Unknown device',
+}
+
+export const APP_PLATFORM_LABELS: Record<AppPlatform, string> = {
+  ANDROID: 'Android',
+  IOS: 'iOS',
 }
 
 export const ACTOR_ROLE_LABELS: Record<AuditActorRole, string> = {

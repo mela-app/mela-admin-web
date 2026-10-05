@@ -42,7 +42,7 @@ directions - blocking someone you follow (or who follows you) ends that
 relationship, it doesn't just sit alongside it. `isBlockedEitherWay()` is
 checked by `follow()` (you can't follow, or be followed by, someone
 blocked either way - a `ForbiddenException`, checked after the
-followee-exists check) and enforced client-side for hiding messages.
+followee-exists check).
 `blockedEitherWayUserIds()` (every id blocking, or blocked by, this user -
 deriving the "other side" from whichever column isn't this user's own id)
 feeds `search()`'s exclusion list and `StreamsService.listLive()`'s
@@ -55,6 +55,26 @@ looking at, so the mobile profile screen can show Block or Unblock
 correctly. Deliberately one-directional: whether the *other side* has
 blocked you isn't surfaced (following/joining are refused either way
 regardless, without revealing which side did it).
+
+**What a block hides, server-side, both ways** (client feedback,
+2026-10): the blocker's profile and follow lists 404 for the person they
+blocked (`findPublicProfile`, `assertCanViewDetails`) - the blocker still
+sees the blocked person's profile, to unblock them. Follow lists leave out
+anyone blocked either way with the viewer. A live 404s on join/watch, guest
+requests and invites (`StreamsService.assertNotBlocked`), and the socket's
+`stream:join` is refused (`NOT_ALLOWED`). In any live, `chat:new` and
+`viewer:joined` skip the `user:{id}` rooms of everyone blocked either way
+with the sender/arrival, and chat history and the viewer list leave them
+out for the reader. The notification inbox and its unread count leave out
+anything whose actor is blocked either way, and the DM inbox and its badge
+leave out conversations with them; a conversation 404s for someone the other
+side blocked. The relation filter is `notBlockedEitherWayWith()`
+(`social/block-filters.ts`). A block while one of them is hosting
+(`StreamsService.handleUserBlocked` on `user.blocked`) takes the other out
+at once: off stage, out of the video room (`revokeToken`), and
+`live.access_revoked` makes the gateway take their sockets out of the room -
+whoever the host blocked also gets `force_disconnect` (scope `SESSION`);
+someone who blocked the host leaves on their own (the app leaves the live).
 
 **Personal chat mute** (plan §6.7, Phase 7): `POST/DELETE
 /v1/users/:id/chat-mute` (`muteInChat()`/`unmuteInChat()`, both idempotent;
@@ -93,8 +113,8 @@ following or blocking someone needs them. The rule lives in one place,
 followers under `FOLLOWERS`; mutual follows under `FRIENDS`; never someone
 the owner blocked). `findPublicProfile` adds `profileVisibility` and
 `canViewProfile` and returns the details as `null` when they're hidden;
-someone the owner blocked is told `ONLY_ME` (`visibilityShownTo` - never
-that they were blocked) and gets no `liveStreamId`. `GET
+someone the owner blocked gets a 404, as if the account didn't exist, and
+someone who blocked the owner gets no `liveStreamId`. `GET
 /users/:id/followers` and `/following` refuse with 403 `{code:
 'PROFILE_PRIVATE'}` (`SocialService.assertCanViewDetails`). Deliberately
 not covered: the person's lives (a live is public by choice) and their

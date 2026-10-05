@@ -16,7 +16,9 @@ import { AppShell } from './AppShell'
 import { NoAccessPage, NotFoundPage, RouteErrorPage, RoutePending } from './RouteStates'
 import {
   alertsSearch,
+  appUpdatesSearch,
   auditSearch,
+  liveChatSearch,
   messagesSearch,
   phrasesSearch,
   safeRedirect,
@@ -95,6 +97,14 @@ const streamRoute = createRoute({
   component: lazyRouteComponent(() => import('../features/streams/StreamDetailPage'), 'StreamDetailPage'),
 })
 
+const liveChatRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/chat',
+  validateSearch: liveChatSearch,
+  beforeLoad: needs('VIEW_LIVES'),
+  component: lazyRouteComponent(() => import('../features/chat/LiveChatPage'), 'LiveChatPage'),
+})
+
 const usersRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/users',
@@ -149,6 +159,14 @@ const staffRoute = createRoute({
   component: lazyRouteComponent(() => import('../features/staff/StaffPage'), 'StaffPage'),
 })
 
+const appUpdatesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/app-updates',
+  validateSearch: appUpdatesSearch,
+  beforeLoad: needs('VIEW_APP_RELEASES'),
+  component: lazyRouteComponent(() => import('../features/releases/AppUpdatesPage'), 'AppUpdatesPage'),
+})
+
 const accountRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/account',
@@ -163,6 +181,7 @@ const routeTree = rootRoute.addChildren([
     noAccessRoute,
     streamsRoute,
     streamRoute,
+    liveChatRoute,
     usersRoute,
     userRoute,
     alertsRoute,
@@ -170,6 +189,7 @@ const routeTree = rootRoute.addChildren([
     auditRoute,
     messagesRoute,
     staffRoute,
+    appUpdatesRoute,
     accountRoute,
   ]),
 ])

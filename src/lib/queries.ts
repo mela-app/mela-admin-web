@@ -9,6 +9,9 @@ import type {
   AlertScope,
   AlertSeverity,
   AlertTarget,
+  AppPlatform,
+  AppRelease,
+  AppReleasePage,
   AuditCatalog,
   AuditEntry,
   BannedPhrase,
@@ -16,6 +19,8 @@ import type {
   ChatLogPage,
   ChatModerationStatus,
   DeviceSession,
+  HostChat,
+  LiveChatHostPage,
   Overview,
   Page,
   PhraseTestResult,
@@ -31,6 +36,7 @@ import type {
 } from './types'
 import type {
   AuditSearch,
+  LiveChatSearch,
   MessagesSearch,
   StreamsSearch,
   UsersSearch,
@@ -249,6 +255,46 @@ export function usePrivateTranscript(conversationId: string, range: DayRange) {
   })
 }
 
+/** Hosts whose lives had chat in [range]; today's list keeps itself current. */
+export function useLiveChatHosts(search: LiveChatSearch, range: DayRange, isToday: boolean) {
+  return useQuery({
+    queryKey: ['live-chat', 'hosts', search.q, paging(search), range],
+    queryFn: ({ signal }) =>
+      api<LiveChatHostPage>('/admin/chat/hosts', {
+        signal,
+        query: { ...range, q: search.q, ...paging(search) },
+      }),
+    placeholderData: keepPreviousData,
+    refetchInterval: isToday ? 30_000 : false,
+  })
+}
+
+/** One host's chat in [range], oldest first, 100 at a time; today's keeps itself current. */
+export function useHostChat(hostId: string, range: DayRange, filter: ChatLogFilter, isToday: boolean) {
+  return useInfiniteQuery({
+    queryKey: ['live-chat', 'host', hostId, range, filter],
+    queryFn: ({ signal, pageParam }) =>
+      api<HostChat>(`/admin/chat/hosts/${id(hostId)}`, {
+        signal,
+        query: { ...range, ...filter, cursor: pageParam, limit: 100 },
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    // A new filter keeps the old messages up until the new ones arrive.
+    placeholderData: keepPreviousData,
+    refetchInterval: isToday ? 15_000 : false,
+  })
+}
+
+export function useAppReleases(page: number) {
+  return useQuery({
+    queryKey: ['app-releases', page],
+    queryFn: ({ signal }) =>
+      api<AppReleasePage>('/admin/app-releases', { signal, query: { page, pageSize: DEFAULT_PAGE_SIZE } }),
+    placeholderData: keepPreviousData,
+  })
+}
+
 // ---- Writes ---------------------------------------------------------------
 
 export const actions = {
@@ -289,6 +335,19 @@ export const actions = {
     api<BannedPhrase>(`/admin/banned-phrases/${id(phraseId)}`, { method: 'PATCH', body }),
   removePhrase: (phraseId: string) => api<{ ok: true }>(`/admin/banned-phrases/${id(phraseId)}`, { method: 'DELETE' }),
   testPhrase: (text: string) => api<PhraseTestResult>('/admin/banned-phrases/test', { method: 'POST', body: { text } }),
+
+  publishRelease: (body: {
+    platform: AppPlatform
+    version: string
+    build: number
+    notes: string
+    downloadUrl: string
+    required: boolean
+  }) => api<AppRelease>('/admin/app-releases', { method: 'POST', body }),
+  updateRelease: (releaseId: string, body: { notes?: string; downloadUrl?: string; required?: boolean }) =>
+    api<AppRelease>(`/admin/app-releases/${id(releaseId)}`, { method: 'PATCH', body }),
+  withdrawRelease: (releaseId: string) =>
+    api<{ ok: true }>(`/admin/app-releases/${id(releaseId)}`, { method: 'DELETE' }),
 
   updateMe: (displayName: string) => api<AdminView>('/admin/me', { method: 'PATCH', body: { displayName } }),
   changePassword: (currentPassword: string, newPassword: string) =>

@@ -15,6 +15,8 @@ export type AdminPermission =
   | 'MANAGE_PHRASES'
   | 'VIEW_AUDIT_LOG'
   | 'VIEW_PRIVATE_MESSAGES'
+  | 'VIEW_APP_RELEASES'
+  | 'MANAGE_APP_RELEASES'
 export type UserStatus = 'ACTIVE' | 'SUSPENDED'
 export type SessionPlatform = 'ANDROID' | 'IOS' | 'WEB' | 'UNKNOWN'
 export type StreamStatus = 'SCHEDULED' | 'LIVE' | 'ENDED' | 'LOCKED'
@@ -30,6 +32,7 @@ export type ModeratorCapability =
   | 'MANAGE_GUEST_REQUESTS'
   | 'REMOVE_GUESTS'
   | 'FORCE_MUTE_GUESTS'
+  | 'ARRANGE_GUESTS'
 export type BannedPhraseSeverity = 'REJECT' | 'MASK'
 export type AlertScope = 'GLOBAL' | 'STREAM'
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL'
@@ -45,6 +48,7 @@ export type AuditCategory =
   | 'SETTINGS'
   | 'ADMIN'
 export type AuditActorRole = 'SUPER_ADMIN' | 'PLATFORM_MODERATOR' | 'HOST' | 'MODERATOR' | 'USER' | 'SYSTEM'
+export type AppPlatform = 'ANDROID' | 'IOS'
 
 export interface Page<T> {
   items: T[]
@@ -295,4 +299,65 @@ export interface PrivateTranscript {
   people: [Person, Person]
   messages: PrivateMessage[]
   nextCursor: string | null
+}
+
+// Live chat a day at a time: the hosts whose lives had chat that day.
+export interface LiveChatHostRow {
+  host: Person
+  liveCount: number
+  messageCount: number
+  firstMessageAt: string
+  lastMessageAt: string
+}
+
+export interface LiveChatHostPage extends Page<LiveChatHostRow> {
+  messageCount: number
+}
+
+export interface LiveChatLive {
+  id: string
+  title: string
+  category: string | null
+  status: StreamStatus
+  startedAt: string
+  endedAt: string | null
+  // Matching messages that day.
+  messageCount: number
+}
+
+export interface LiveChatEntry extends ChatLogEntry {
+  streamId: string
+}
+
+// One host's chat that day, oldest first, across their lives.
+export interface HostChat {
+  host: Person
+  lives: LiveChatLive[]
+  messages: LiveChatEntry[]
+  nextCursor: string | null
+}
+
+export interface AppRelease {
+  id: string
+  platform: AppPlatform
+  version: string
+  // The number after + in pubspec.yaml - what phones compare.
+  build: number
+  notes: string
+  downloadUrl: string
+  required: boolean
+  createdAt: string
+  updatedAt: string
+  publishedBy: Person | null
+}
+
+export interface AppPlatformStatus {
+  latest: AppRelease | null
+  // Builds below this one can't be used.
+  required: AppRelease | null
+  suggestedDownloadUrl: string | null
+}
+
+export interface AppReleasePage extends Page<AppRelease> {
+  platforms: Record<AppPlatform, AppPlatformStatus>
 }

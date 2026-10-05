@@ -24,12 +24,15 @@ never anything special to any other host.
 
 **Capabilities** (`ModeratorCapability` enum - the host picks any subset,
 never all-or-nothing): `DELETE_MESSAGES`, `PIN_MESSAGES`, `MUTE_CHAT`,
-`BAN_USERS`, `MANAGE_GUEST_REQUESTS`, `REMOVE_GUESTS`, `FORCE_MUTE_GUESTS`.
+`BAN_USERS`, `MANAGE_GUEST_REQUESTS`, `REMOVE_GUESTS`, `FORCE_MUTE_GUESTS`,
+`ARRANGE_GUESTS`.
 `DELETE_MESSAGES`, `PIN_MESSAGES` and `BAN_USERS` gate chat delete/pin and
 room bans; `MANAGE_GUEST_REQUESTS` and `REMOVE_GUESTS` gate answering raised
 hands and taking guests off the stage (Phase 6, docs/features/guests.md);
-`MUTE_CHAT` gates room chat mute/unmute (Phase 7, docs/features/moderation.md)
-and `FORCE_MUTE_GUESTS` locking a guest's mic (Phase 7, docs/features/guests.md).
+`MUTE_CHAT` gates room chat mute/unmute (Phase 7, docs/features/moderation.md),
+`FORCE_MUTE_GUESTS` locking a guest's mic (Phase 7, docs/features/guests.md)
+and `ARRANGE_GUESTS` moving and resizing guests' tiles on the stage
+(2026-10, docs/features/guests.md - part of the "Guest manager" preset).
 **Presets** ("Chat moderator",
 "Guest manager", "Full moderator" from plan §6.9) are a pure mobile-UI
 convenience over this same flat capability list - the backend has no

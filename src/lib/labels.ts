@@ -67,6 +67,7 @@ export const CAPABILITY_LABELS: Record<ModeratorCapability, string> = {
   MANAGE_GUEST_REQUESTS: 'Stage requests',
   REMOVE_GUESTS: 'Remove guests',
   FORCE_MUTE_GUESTS: 'Mute guests',
+  ARRANGE_GUESTS: 'Arrange guests',
 }
 
 export const PHRASE_SEVERITY_LABELS: Record<BannedPhraseSeverity, string> = {

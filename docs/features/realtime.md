@@ -42,6 +42,7 @@ One Socket.IO gateway (`RealtimeGateway`), and one app-wide connection per signe
 | `guest_request:cancelled` | `{streamId, requestId, initiatedBy, recipientIds}` | the same recipients as the original request/invite |
 | `guest:joined` | `{streamId, user, agoraUid}` | the room |
 | `guest:removed` | `{streamId, hostId, userId, wasRemovedByHostOrModerator}` | the room |
+| `guest:placed` | `{streamId, userId, placement}` - `{x, y, size}`, or null for the automatic column (docs/features/guests.md) | the room |
 | `you_were_removed` | `{streamId, hostId}` | the removed guest's `user:{id}` - only when the host or a moderator removed them |
 | `chat:muted` | `{streamId, mutedUntil}` | the muted user's `user:{id}` only - the room never learns who is muted (plan §6.7); `mutedUntil` null = until the live ends |
 | `chat:unmuted` | `{streamId}` | the same user's `user:{id}` |

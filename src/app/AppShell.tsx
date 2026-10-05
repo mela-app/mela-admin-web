@@ -4,12 +4,14 @@ import {
   LogOut,
   Megaphone,
   Menu,
+  MessageSquareText,
   MessagesSquare,
   Radio,
   ScrollText,
   Settings,
   ShieldBan,
   ShieldUser,
+  Smartphone,
   Users,
   X,
   type LucideIcon,
@@ -27,7 +29,17 @@ import { ConfirmDialog } from '../components/ui/Dialog'
 import { Avatar } from '../components/ui/misc'
 import { IconButton } from '../components/ui/Button'
 
-type NavTarget = '/' | '/streams' | '/users' | '/staff' | '/alerts' | '/phrases' | '/audit' | '/messages'
+type NavTarget =
+  | '/'
+  | '/streams'
+  | '/chat'
+  | '/users'
+  | '/staff'
+  | '/app-updates'
+  | '/alerts'
+  | '/phrases'
+  | '/audit'
+  | '/messages'
 
 interface NavItem {
   to: NavTarget
@@ -114,6 +126,7 @@ function Sidebar() {
       items: [
         { to: '/', label: 'Overview', icon: LayoutDashboard },
         { to: '/streams', label: 'Lives', icon: Radio, count: liveCount, needs: 'VIEW_LIVES' },
+        { to: '/chat', label: 'Live chat', icon: MessageSquareText, needs: 'VIEW_LIVES' },
       ],
     },
     {
@@ -121,6 +134,7 @@ function Sidebar() {
       items: [
         { to: '/users', label: 'Users', icon: Users, needs: 'VIEW_USERS' },
         { to: '/staff', label: 'Staff', icon: ShieldUser },
+        { to: '/app-updates', label: 'App updates', icon: Smartphone, needs: 'VIEW_APP_RELEASES' },
       ],
     },
     {

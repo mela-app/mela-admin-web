@@ -40,6 +40,12 @@ carry `actorId` for the audit trail, like the Phase 4 moderation events.
 `{streamId, userId, actorId, placement}`. `RealtimeGateway` relays it to the
 room as `guest:placed`. Not audited.
 
+`app_release.changed` (`AdminReleasesService`, 2026-10): an app update was
+published, edited or withdrawn - `{change, releaseId, actorId, platform,
+version, build, required, fields?}`. `RealtimeGateway` relays it to every
+socket as `app:update {platform}`, and `AuditEventsListener` records it as
+`app.release_<change>` (docs/features/app-updates.md).
+
 `recording_permission.changed` (`RecordingPermissionsService`, 2026-09-30):
 the host let a viewer record their live or took it back - relayed only to
 that viewer's `user:{id}` room as `recording:permission {streamId, allowed}`

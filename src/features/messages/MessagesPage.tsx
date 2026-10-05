@@ -1,16 +1,16 @@
 import { getRouteApi, Link } from '@tanstack/react-router'
-import { ChevronLeft, ChevronRight, Lock, MessagesSquare, X } from 'lucide-react'
+import { Lock, MessagesSquare, X } from 'lucide-react'
 import type { MessagesSearch } from '../../app/search'
+import { DayNavigation } from '../../components/DayNavigation'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Pagination } from '../../components/ui/DataTable'
 import { Callout, EmptyState, ErrorState, Skeleton } from '../../components/ui/feedback'
-import { Input } from '../../components/ui/forms'
 import { Avatar, PageHeader } from '../../components/ui/misc'
 import { SearchInput } from '../../components/ui/SearchInput'
 import { useAuth } from '../../lib/auth-context'
 import { cn } from '../../lib/cn'
-import { addDays, dayBoundary, formatDateTime, formatDay, formatNumber, formatPrecise, localDay } from '../../lib/format'
+import { dayBoundary, formatDateTime, formatDay, formatNumber, formatPrecise, localDay } from '../../lib/format'
 import { usePrivateConversations, usePrivateTranscript } from '../../lib/queries'
 import { DEFAULT_PAGE_SIZE } from '../../lib/search'
 import type { Person, PrivateConversationRow, PrivateMessage } from '../../lib/types'
@@ -58,29 +58,7 @@ export function MessagesPage() {
 
       <Card flush>
         <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 p-4">
-          <div className="flex items-center gap-1">
-            <IconButton label="Previous day" onClick={() => goToDay(addDays(day, -1))}>
-              <ChevronLeft />
-            </IconButton>
-            <Input
-              type="date"
-              aria-label="Day"
-              className="w-40"
-              value={day}
-              max={today}
-              onChange={(event) => {
-                if (event.target.value) goToDay(event.target.value)
-              }}
-            />
-            <IconButton label="Next day" disabled={isToday} onClick={() => goToDay(addDays(day, 1))}>
-              <ChevronRight />
-            </IconButton>
-          </div>
-          {!isToday && (
-            <Button variant="ghost" size="sm" onClick={() => goToDay(today)}>
-              Today
-            </Button>
-          )}
+          <DayNavigation day={day} today={today} onChange={goToDay} />
           <SearchInput
             className="w-full sm:w-72"
             value={search.q}

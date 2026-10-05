@@ -1,5 +1,6 @@
 import type {
   AlertSeverity,
+  AppPlatform,
   AuditActorRole,
   BannedPhraseSeverity,
   ChatModerationStatus,
@@ -86,6 +87,11 @@ export const PLATFORM_LABELS: Record<SessionPlatform, string> = {
   IOS: 'iOS app',
   WEB: 'Admin console',
   UNKNOWN: 'Unknown device',
+}
+
+export const APP_PLATFORM_LABELS: Record<AppPlatform, string> = {
+  ANDROID: 'Android',
+  IOS: 'iOS',
 }
 
 export const ACTOR_ROLE_LABELS: Record<AuditActorRole, string> = {

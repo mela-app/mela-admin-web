@@ -94,6 +94,19 @@ export const ACCESS_AREAS: AccessArea[] = [
       },
     ],
   },
+  {
+    key: 'appUpdates',
+    label: 'App updates',
+    levels: [
+      { value: 'view', label: 'View', description: 'See which versions of the app were published.', grants: ['VIEW_APP_RELEASES'] },
+      {
+        value: 'publish',
+        label: 'Publish',
+        description: 'Also tell everyone a new version is out, require it, or withdraw it.',
+        grants: ['VIEW_APP_RELEASES', 'MANAGE_APP_RELEASES'],
+      },
+    ],
+  },
 ]
 
 /** The strongest level of [area] that [permissions] fully covers, or null for no access. */

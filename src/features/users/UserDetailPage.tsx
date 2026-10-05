@@ -1,5 +1,5 @@
 import { getRouteApi, Link } from '@tanstack/react-router'
-import { Ban, LogOut, MessagesSquare, Pencil, Radio, ShieldCheck, UserCheck } from 'lucide-react'
+import { Ban, LogOut, MessageSquareText, MessagesSquare, Pencil, Radio, ShieldCheck, UserCheck } from 'lucide-react'
 import { useState } from 'react'
 import type { UserTab } from '../../app/search'
 import { AccessSummary } from '../../components/AccessSummary'
@@ -106,6 +106,11 @@ function UserView({ user }: { user: UserDetail }) {
             {user.liveStream && auth.can('VIEW_LIVES') && (
               <Link to="/streams/$streamId" params={{ streamId: user.liveStream.id }} className={buttonClasses('secondary')}>
                 <Radio /> Open live
+              </Link>
+            )}
+            {auth.can('VIEW_LIVES') && user.counts.streams > 0 && (
+              <Link to="/chat" search={{ host: user.id }} className={buttonClasses('secondary')}>
+                <MessageSquareText /> Live chat
               </Link>
             )}
             {auth.can('VIEW_PRIVATE_MESSAGES') && (

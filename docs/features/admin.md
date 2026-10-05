@@ -8,9 +8,11 @@
 ## What it does
 
 An internal web console for platform staff: watch and lock lives, read and
-moderate a live's chat, send in-app alerts, manage accounts (suspend,
+moderate a live's chat - live by live, or a day at a time by host - send
+in-app alerts, manage accounts (suspend,
 reinstate, sign out everywhere, fix a profile, change a platform role),
-edit the banned-phrase list, create staff accounts,
+edit the banned-phrase list, create staff accounts, publish app updates
+(docs/features/app-updates.md),
 and search the audit trail. Every action is enforced on the server and
 written to the audit log, and so is every sign-in, account change and
 moderation action taken in the mobile app.
@@ -25,12 +27,13 @@ and it can be changed later from their user page (`PATCH
 
 | Area | View | Manage |
 |---|---|---|
-| Lives and chat | `VIEW_LIVES`: the lives list, a live's details and chat log | `MANAGE_LIVES`: lock, unlock, delete chat messages |
+| Lives and chat | `VIEW_LIVES`: the lives list, a live's details and chat log, Live chat by day | `MANAGE_LIVES`: lock, unlock, delete chat messages |
 | Users | `VIEW_USERS`: accounts, details, devices | `MANAGE_USERS`: suspend, reinstate, sign out everywhere, fix a profile (app users only) |
 | Alerts | `VIEW_ALERTS`: sent alerts | `SEND_ALERTS`: alert one live; `SEND_GLOBAL_ALERTS`: also alert everyone |
 | Banned phrases | `VIEW_PHRASES`: the list, testing a message | `MANAGE_PHRASES`: add, change, remove |
 | Audit log | `VIEW_AUDIT_LOG`: read and export | |
 | Private messages | `VIEW_PRIVATE_MESSAGES`: read conversations between users, a day at a time - each one opened is audited | |
+| App updates | `VIEW_APP_RELEASES`: the published versions | `MANAGE_APP_RELEASES`: publish, edit, withdraw (docs/features/app-updates.md) |
 
 A stronger permission includes the area's weaker ones
 (`common/permissions/admin-permissions.ts`), so a moderator who can manage
@@ -157,6 +160,31 @@ refetches an open conversation by itself. Ranges are capped at 31 days
 A platform moderator needs `VIEW_PRIVATE_MESSAGES`, which a super admin
 gives them.
 
+### Live chat
+
+The **Live chat** page (`/chat`, under Monitor; client request, 2026-10)
+arranges the chat from lives like private messages: one local day at a
+time, today unless another day is picked, with the same day controls and a
+host search. The list is the hosts whose lives had chat that day - how
+many lives and messages, the last one's time, latest first (`GET
+/admin/chat/hosts`: the lives running that day, then a `groupBy` of their
+messages, added up per host). Picking a host shows their chat that day
+beside the list, oldest first, under a heading for each live (`GET
+/admin/chat/hosts/:hostId`), with the chat log's search and status filter,
+every moderation status, and the same delete and suspend actions; a live
+that began the day before shows its date. Today's list refreshes every 30 s
+and the open chat every 15 s. The open host stays when the day changes, to
+read their chat day by day, and a host's user page links there with
+**Live chat** (`?host=`). Chat in a live is public, so reading it isn't
+audited - deleting a message is, as anywhere. It needs `VIEW_LIVES`; a
+live's own **Chat log** tab is unchanged. The day range rules are shared
+with private messages (`admin/day-range.ts`).
+
+### App updates
+
+The **App updates** page (`/app-updates`, under Manage) publishes each new
+version of the app, per platform - see docs/features/app-updates.md.
+
 ### REST routes (all under `/v1`, all audited)
 
 Each route needs the permission in brackets (a super admin has them all).
@@ -185,6 +213,11 @@ POST/PATCH/DELETE /admin/banned-phrases[/:id]                              [MANA
 GET    /admin/audit-logs | /admin/audit-logs/catalog | /admin/audit-logs/export  [VIEW_AUDIT_LOG]
 GET    /admin/messages/conversations?from&to[&q&userId&page&pageSize]      [VIEW_PRIVATE_MESSAGES]
 GET    /admin/messages/conversations/:id?from&to[&cursor&limit]  (audited)  [VIEW_PRIVATE_MESSAGES]
+GET    /admin/chat/hosts?from&to[&q&page&pageSize]                         [VIEW_LIVES]
+GET    /admin/chat/hosts/:hostId?from&to[&q&status&cursor&limit]           [VIEW_LIVES]
+GET    /admin/app-releases[?page&pageSize]                                 [VIEW_APP_RELEASES]
+POST   /admin/app-releases ({platform, version, build, notes, downloadUrl, required?})  [MANAGE_APP_RELEASES]
+PATCH  /admin/app-releases/:id ({notes?, downloadUrl?, required?}) | DELETE /admin/app-releases/:id  [MANAGE_APP_RELEASES]
 ```
 
 Every admin controller except sign-in/refresh/sign-out is throttled at
@@ -299,6 +332,10 @@ able to call it.
     permission changes.
   - `admin/content/admin-content.service.spec.ts`: alert targets, global
     alerts by permission, phrases.
+  - `admin/chat/admin-chat.service.spec.ts`: hosts with chat that day,
+    added up across their lives; one host's chat by live, filters, paging.
+  - `admin/releases/admin-releases.service.spec.ts`: see
+    docs/features/app-updates.md.
   - `audit/audit.service.spec.ts`: filters, CSV escaping.
   - `audit/audit-events.listener.spec.ts`: every handler.
   - `auth/jwt-auth.guard.spec.ts`: a revoked session.
@@ -318,4 +355,5 @@ able to call it.
   missing permission re-reading access), `lib/permissions.test.tsx` (access
   levels and the picker), `lib/format.test.ts`, `app/search.test.ts` (URL
   filters, safe redirects), `features/account/PasswordForm.test.tsx`,
-  `components/ui/ui.test.tsx`.
+  `components/ui/ui.test.tsx`, `features/chat/sections.test.ts` (a host's
+  day split by live), `features/releases/release-form.test.ts`.

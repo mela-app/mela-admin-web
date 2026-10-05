@@ -42,6 +42,8 @@ Every message view (`chat:new`, the send answer, history) carries `imageUrl` (nu
 
 **Rate limiting** (`common/rate-limit/rate-limit.service.ts`) is a generic per-key token bucket (`RateLimitService.take(key, {capacity, refillMs})`), reused by both chat and likes with their own keys/limits - not two separate implementations.
 
+**In the admin console** (docs/features/admin.md): a live's **Chat log** tab (`GET /v1/admin/streams/:id/chat`, newest first, refreshing while the live runs), and the **Live chat** page, which arranges chat like private messages - a day at a time, by host, each host's chat that day under a heading per live (`GET /v1/admin/chat/hosts[/:hostId]`). Both show every moderation status, with search, a status filter, delete and suspend.
+
 ## Mobile (`apps/mobile/lib/features/chat`, wired into both `live_stream/viewer_screen.dart` and `live_stream/go_live_screen.dart`)
 
 `ChatRepository` (`data/`) wraps the history REST call; `LiveChatController` and `LiveLikesController` (`presentation/`, both `ChangeNotifier`) own the client-side state and listen to the same `LiveRoom` every other realtime feature uses (`live_stream/live_room.dart`) - nothing here talks to Socket.IO directly.

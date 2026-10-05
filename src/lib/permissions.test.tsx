@@ -15,6 +15,9 @@ describe('access levels', () => {
     expect(levelOf(area('users'), ['VIEW_USERS', 'MANAGE_USERS'])?.value).toBe('manage')
     expect(levelOf(area('alerts'), ['VIEW_ALERTS', 'SEND_ALERTS', 'SEND_GLOBAL_ALERTS'])?.value).toBe('everyone')
     expect(levelOf(area('messages'), ['VIEW_PRIVATE_MESSAGES'])?.value).toBe('read')
+    expect(levelOf(area('appUpdates'), ['VIEW_APP_RELEASES'])?.value).toBe('view')
+    expect(levelOf(area('appUpdates'), ['VIEW_APP_RELEASES', 'MANAGE_APP_RELEASES'])?.value).toBe('publish')
+    expect(levelOf(area('appUpdates'), ['MANAGE_APP_RELEASES'])).toBeNull()
   })
 
   it('changes one area and leaves the others alone', () => {

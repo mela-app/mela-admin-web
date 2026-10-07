@@ -173,6 +173,16 @@ const accountRoute = createRoute({
   component: lazyRouteComponent(() => import('../features/account/AccountPage'), 'AccountPage'),
 })
 
+// Removing data is never a permission a moderator can be given: super admins only.
+const dataRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/data',
+  beforeLoad: ({ context }) => {
+    if (!context.auth.isSuperAdmin) throw redirect({ to: '/no-access', replace: true })
+  },
+  component: lazyRouteComponent(() => import('../features/data/DataPage'), 'DataPage'),
+})
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   changePasswordRoute,
@@ -191,6 +201,7 @@ const routeTree = rootRoute.addChildren([
     staffRoute,
     appUpdatesRoute,
     accountRoute,
+    dataRoute,
   ]),
 ])
 

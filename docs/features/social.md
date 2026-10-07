@@ -120,6 +120,21 @@ someone who blocked the owner gets no `liveStreamId`. `GET
 not covered: the person's lives (a live is public by choice) and their
 chat messages.
 
+**Profile sharing** (client feedback, 2026-10): `User.profileSharing` -
+the same `EVERYONE` (default) | `FOLLOWERS` | `FRIENDS` | `ONLY_ME`, set with
+`PATCH /users/me {profileSharing}` - decides who may share a profile's link
+("Who can share your profile" in the app's privacy screen). The rule is
+`social/profile-sharing.ts` (`canShareProfile`): the owner always may;
+anyone else must first be able to see the profile's details
+(`canViewProfileDetails` - sharing can't reach past visibility), then
+`EVERYONE` lets them, `FOLLOWERS` only the owner's followers, `FRIENDS` only
+mutual follows, `ONLY_ME` nobody. `findPublicProfile` returns `canShare`
+for the viewer, and `profileSharing` to the owner only (null for anyone
+else). The app shows a Share action on a profile when `canShare`; the link
+is `https://{app-domain}/profile/:id` (docs/features/share.md). It's a UI
+rule over a public URL: whoever has the link can open it, and what the
+profile then shows still follows `profileVisibility`.
+
 **Following feed**: `GET /streams?feed=following` reuses the existing
 discovery endpoint (`StreamsService.listLive`) - `feed=following` requires
 a signed-in caller (`OptionalJwtAuthGuard` again; the *service* throws

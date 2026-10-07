@@ -1,13 +1,13 @@
 import { Link } from '@tanstack/react-router'
-import { Trash, UserX } from 'lucide-react'
+import { Trash, Trash2, UserX } from 'lucide-react'
 import { MessageStatusBadge } from '../../components/StatusBadges'
-import { IconButton } from '../../components/ui/Button'
+import { Button, IconButton } from '../../components/ui/Button'
 import { Select } from '../../components/ui/forms'
 import { Avatar } from '../../components/ui/misc'
 import { SearchInput } from '../../components/ui/SearchInput'
 import { useAuth } from '../../lib/auth-context'
 import { cn } from '../../lib/cn'
-import { formatPrecise } from '../../lib/format'
+import { formatNumber, formatPrecise } from '../../lib/format'
 import type { ChatLogFilter } from '../../lib/queries'
 import type { ChatLogEntry, ChatModerationStatus } from '../../lib/types'
 
@@ -27,9 +27,49 @@ export function ChatFilters({ filter, onChange }: { filter: ChatLogFilter; onCha
         <option value="">All messages</option>
         <option value="VISIBLE">Visible</option>
         <option value="HIDDEN">Hidden by the filter</option>
-        <option value="DELETED">Deleted</option>
+        <option value="DELETED">Deleted by a host or moderator</option>
       </Select>
     </>
+  )
+}
+
+interface ChatPickBarProps {
+  shown: ChatLogEntry[]
+  // The ids picked among [shown].
+  picked: string[]
+  onPickAll: (on: boolean) => void
+  onDelete: (messageIds: string[]) => void
+}
+
+/** Above the messages: pick every one shown, and delete the picked ones. */
+export function ChatPickBar({ shown, picked, onPickAll, onDelete }: ChatPickBarProps) {
+  const all = picked.length === shown.length
+  const count = `${formatNumber(picked.length)} ${picked.length === 1 ? 'message' : 'messages'}`
+  return (
+    <div className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 px-5 py-2 text-[13px]">
+      <label className="inline-flex cursor-pointer items-center gap-2.5 text-zinc-700">
+        <input
+          type="checkbox"
+          className="size-4 rounded border-zinc-300 accent-zinc-900"
+          checked={all}
+          ref={(input) => {
+            if (input) input.indeterminate = picked.length > 0 && !all
+          }}
+          onChange={(event) => onPickAll(event.target.checked)}
+        />
+        {picked.length > 0 ? `${formatNumber(picked.length)} picked` : `Pick all ${formatNumber(shown.length)} shown`}
+      </label>
+      {picked.length > 0 && (
+        <>
+          <Button size="sm" variant="ghost" onClick={() => onPickAll(false)}>
+            Clear
+          </Button>
+          <Button size="sm" variant="danger" icon={<Trash2 />} className="ml-auto" onClick={() => onDelete(picked)}>
+            Delete {count}
+          </Button>
+        </>
+      )}
+    </div>
   )
 }
 
@@ -38,13 +78,30 @@ interface ChatMessageRowProps {
   hostId: string
   onDelete?: () => void
   onSuspend?: () => void
+  picked?: boolean
+  onPick?: (picked: boolean) => void
 }
 
 /** One chat message as the room saw it, with how the filters or moderators left it. */
-export function ChatMessageRow({ message, hostId, onDelete, onSuspend }: ChatMessageRowProps) {
+export function ChatMessageRow({ message, hostId, onDelete, onSuspend, picked, onPick }: ChatMessageRowProps) {
   const auth = useAuth()
   return (
-    <li className={cn('group flex gap-3 px-5 py-3', message.moderationStatus !== 'VISIBLE' && 'bg-zinc-50/70')}>
+    <li
+      className={cn(
+        'group flex gap-3 px-5 py-3',
+        message.moderationStatus !== 'VISIBLE' && 'bg-zinc-50/70',
+        picked && 'bg-brand-50/70',
+      )}
+    >
+      {onPick && (
+        <input
+          type="checkbox"
+          className="mt-1.5 size-4 shrink-0 rounded border-zinc-300 accent-zinc-900"
+          checked={picked ?? false}
+          onChange={(event) => onPick(event.target.checked)}
+          aria-label={`Pick the message from @${message.user.username}`}
+        />
+      )}
       <Avatar name={message.user.displayName} url={message.user.avatarUrl} size="sm" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px]">

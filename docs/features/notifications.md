@@ -18,7 +18,18 @@ push isn't shown - the in-app banner covers it.
 - **Types** (`NotificationType`, additive-only like the realtime event
   catalog): `STREAM_STARTED`, `NEW_FOLLOWER`, `STREAM_INVITE`,
   `MODERATOR_GRANTED`, `GUEST_INVITE` (a host's stage invite - emitted
-  since Phase 6, `onGuestRequestCreated`; see docs/features/guests.md).
+  since Phase 6, `onGuestRequestCreated`; see docs/features/guests.md),
+  and the security notices `PASSWORD_ADDED` / `PASSWORD_CHANGED`.
+- **Security notices** (`onPasswordAdded` / `onPasswordChanged`, on
+  `account.password_added` / `account.password_changed` - the app's
+  password settings and the console's own change, see docs/features/auth.md):
+  one row for the account itself, with no actor or stream, so a change
+  nobody on the account made gets seen. They have **no setting**
+  (`SETTING_KEY_BY_TYPE` maps them to `null`) and always push - though a
+  change has already signed out the other devices (their push tokens went
+  with their sessions), so those see it in the inbox once back in. The app
+  shows a lock instead of an avatar and opens Settings > Password on a tap;
+  a build from before them shows "You have a new notification".
 - **Go-live fan-out** (`onStreamStarted`, `@OnEvent('stream.started')`,
   emitted by `StreamsService.goLive()`): a per-host 5-minute cooldown
   (`SET notif:golive:{hostId} NX EX 300` in Redis) means restarting a live

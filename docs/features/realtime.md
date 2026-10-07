@@ -24,6 +24,7 @@ One Socket.IO gateway (`RealtimeGateway`), and one app-wide connection per signe
 | `stream:host_heartbeat` | `{streamId}` | `{ok}` | Every 15 s. `STREAM_NOT_LIVE`: the live ended while the host was offline. `NOT_HOST`: this socket hasn't (re)joined as host. |
 | `stream:host_away` | `{streamId, away}` | `{ok}` | The host's app left / came back to the foreground. Coming back counts as a heartbeat, and answers `STREAM_NOT_LIVE` if the live ended meanwhile. |
 | `stream:host_pause` | `{streamId, paused}` | `{ok}` | The host paused or resumed the live. Counts as a heartbeat (re-armed with the paused grace window); `STREAM_NOT_LIVE` if the live ended meanwhile. |
+| `guest:moving` | `{streamId, userId, placement}` | `{ok}` | Where a guest's tile is mid-drag (docs/features/guests.md). The socket must be in that live (`NOT_IN_ROOM`) and its user the host or an `ARRANGE_GUESTS` moderator (`NOT_ALLOWED`; checked once per 10 s). Nothing is stored. |
 
 **Server → client**:
 
@@ -43,6 +44,8 @@ One Socket.IO gateway (`RealtimeGateway`), and one app-wide connection per signe
 | `guest:joined` | `{streamId, user, agoraUid}` | the room |
 | `guest:removed` | `{streamId, hostId, userId, wasRemovedByHostOrModerator}` | the room |
 | `guest:placed` | `{streamId, userId, placement}` - `{x, y, size}`, or null for the automatic column (docs/features/guests.md) | the room |
+| `guest:moving` | `{streamId, userId, placement}` - a tile mid-drag, at most every 100 ms per tile, latest only | the room except the dragging socket, volatile |
+| `guest:spotlight` | `{streamId, userId}` - who fills the stage; null = the host again | the room |
 | `you_were_removed` | `{streamId, hostId}` | the removed guest's `user:{id}` - only when the host or a moderator removed them |
 | `chat:muted` | `{streamId, mutedUntil}` | the muted user's `user:{id}` only - the room never learns who is muted (plan §6.7); `mutedUntil` null = until the live ends |
 | `chat:unmuted` | `{streamId}` | the same user's `user:{id}` |

@@ -102,10 +102,35 @@
   - **Where "Get the app" goes**: `ANDROID_INSTALL_URL` (default: the Play
     Store listing for `ANDROID_APP_PACKAGE_NAME`) and `IOS_INSTALL_URL`
     (blank: no iOS store link until there's an App Store listing).
+  - **Signing up**: Continue with Google, when the API has the Firebase Web
+    app's settings (`FIREBASE_WEB_API_KEY` / `FIREBASE_WEB_APP_ID`) - the
+    page then also allows Google's popup in its CSP; otherwise new people
+    are sent to the app. Existing accounts log in with their password
+    either way. See docs/features/auth.md.
   - **Limits, by design**: anonymous viewers count but aren't listed (no
     name to show); a viewer banned from a live can still watch it signed
     out, but can't chat, like or follow there; the viewer count can only
     be inflated as fast as the watch endpoint's per-IP limit allows.
+- **`GET /profile/:id`** (`ProfileLinkController`, 2026-10, unversioned like
+  `/live/:id`): where a shared profile link lands in a browser - so the app
+  opened it straight away if installed (App Links / Universal Links, once
+  verified - the AASA lists `/profile/*` too). A small page with Open Graph
+  tags (the name, `@username`, the picture when it's an http(s) URL),
+  `noindex`, an "Open in the Mela app" button (`{APP_URL_SCHEME}://profile/:id`)
+  and "Get Mela" store buttons (`installLinks`, shared with the web player:
+  `ANDROID_INSTALL_URL` / `IOS_INSTALL_URL`). A nonce'd script at the end of
+  the body tries the app at once: on Android an `intent://` URL with
+  `S.browser_fallback_url` set to the Play Store - Chrome opens the app, or
+  the store when it isn't installed; on iPhone/iPad it goes to the App Store
+  only when `APPLE_APP_ID` is set (with Universal Links, an installed app
+  never reaches this page) and `IOS_INSTALL_URL` exists. Unknown, non-UUID
+  and non-active accounts get a plain 404 page with the store buttons. Its
+  own CSP: `default-src 'none'`, the nonce'd script only, inline styles,
+  images from https. The app parses `/profile/:id` (and
+  `{scheme}://profile/:id`) in `deep_link_listener.dart`: its own id opens
+  the Profile tab, anyone else's their profile. `AppConfig.profileLink`
+  builds the link from `APP_LINK_BASE_URL` (the root now - a legacy
+  `.../live` value still works).
 - **`.well-known/assetlinks.json` / `.well-known/apple-app-site-association`**
   (`WellKnownController`, also `VERSION_NEUTRAL`): the domain-verification
   files Android App Links / iOS Universal Links need to open a link

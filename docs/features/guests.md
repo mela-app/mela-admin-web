@@ -163,6 +163,33 @@ someone not on stage) and emits `guest.placement_changed`; the gateway sends
 in the column, and `GET .../guests` and the join response carry `placement`,
 so late joiners and rejoins see the arrangement.
 
+**Watching a tile move** (client feedback, 2026-10): everyone sees a tile
+follow the arranger's finger, not just land on the drop. While dragging,
+the arranger's app sends `guest:moving {streamId, userId, placement}` over
+the socket (at most every 100 ms). The gateway checks the sender may arrange
+that live (the host's own socket, or `StreamsService.canArrangeStage`,
+cached per socket for 10 s), keeps only the latest position per tile, and
+sends it to the room - except the sender - every 100 ms (`KeyedThrottle`),
+as a volatile emit: a slow viewer skips stale positions instead of queuing
+them. Nothing is stored; the drop's `PUT .../placement` saves it, and its
+`guest:placed` cancels any position still waiting, so a preview can't land
+after the drop. A preview with nothing newer for 1.5 s (the arranger's
+connection went) is dropped, and the tile settles back where it was saved.
+
+**The full stage (spotlight)** (client feedback, 2026-10): the host, or an
+`ARRANGE_GUESTS` moderator, can put a guest on the full stage - their video
+fills it and the host shrinks to a tile at the top of the column - and give
+it back. `PUT /v1/streams/:id/guests/:userId/spotlight` /
+`DELETE /v1/streams/:id/spotlight`, live streams only
+(`StreamsService.setSpotlight`). `GuestsService.setSpotlight` keeps it on
+the seat (`stream_guests.spotlightAt`), one guest at a time: one
+transaction sets it on that seat (404 for someone not on stage) and clears
+it from any other. It emits `guest.spotlight_changed`, which the gateway
+sends to the room as `guest:spotlight {streamId, userId}` (null = the host
+again); giving back an already-free stage says nothing. Leaving the stage
+ends it, and a new seat starts without it. `GET .../guests` and the join
+response carry `spotlight` per guest, so late joiners and rejoins see it.
+
 ## Mobile (`apps/mobile/lib/features/guests`)
 
 - **Data**: `Guest`, `GuestRequest` (`isInvite` for the host's direction) and `kMaxGuests` (mirror of `MAX_ACTIVE_GUESTS`, used only to disable Accept on a full stage - the backend enforces the cap) in `domain/guest.dart`; `GuestsRepository` wraps all 9 endpoints (`guestsRepositoryProvider`). `LiveRoom` turns the realtime events into `GuestRequestReceived`/`Accepted`/`Rejected`/`Cancelled`, `GuestJoined`, `GuestLeft` and `SelfRemovedFromStage`.
@@ -175,6 +202,8 @@ so late joiners and rejoins see the arrangement.
 - **Notifications**: a `GUEST_INVITE` tap opens the live, which then shows the invite. The in-app banner stays quiet about the live already open (its own prompt handles it).
 - **Mic lock**: `Guest.micLocked` (from `micForceMuted`), `LiveGuestsController.setMicLocked` (optimistic, put back on refusal), `canLockMics`/`canManageGuests`, `selfMicLocked`; `LiveRoom` turns the events into `SelfMicForceMuted`/`GuestMicLockChanged`. The guest manager sheet has a mic toggle and Remove per guest - where `ModerationPolicy` allows it: a moderator never gets them on another moderator (badged MOD there), and the server refuses it anyway (docs/features/moderators.md). On the guest's own device `ViewerScreen` turns the mic off and refuses to turn it back on while locked ("…once the host allows it") - except for a moderator, whose mic button lifts the lock first (`_liftOwnMicLock`: `setMicLocked(self, locked: false)`, then the mic on). `MicLockMonitor` gives a locked guest's app 5 s to comply; after that, audio still arriving flags them - a warning icon on their tile and "Still sending audio after being muted - remove them from the stage" in the sheet (which rebuilds on mic changes while open).
 - **Arranging the stage**: `Guest.placement` (`StagePlacement`, `live_stream/stage_placement.dart` - `rectIn`/`fromRect` map it to and from a screen's guest area), `LiveGuestsController.place`/`lineUp` (optimistic, put back on refusal) and `canArrangeGuests` (the host, or `ARRANGE_GUESTS` - which also opens the guest manager); `LiveRoom` turns `guest:placed` into `GuestPlaced`. `LiveStage` places each `StageTile.placement` and, for an arranger (`onTileMoved`), lets a tile be dragged anywhere in the guest area - one finger moves it, two also resize it - with a corner grip (bottom-left, shown with the controls) that resizes it keeping its top-right corner put; the drop reports the new placement, which both live screens pass to `place`. The guest area is the column's room across the whole width - under the top bar to above the bottom panel at rest on a full stage, the video band in Split, the window in Floating - so a placement scales with the layout and the screen. Tiles nobody moved keep the column, and only those push the chat aside. "Reset positions" in the guest manager puts every moved tile back in line. The web player shows placements the same way (`.stage-guest-area`, CSS container units).
+- **Watching a tile move**: `LiveStage.onTileMoving` reports where a tile is at every move of a drag or resize; both live screens pass it to `LiveGuestsController.previewMove`, which sends `LiveRoom.sendGuestMoving` - the first position at once, then the latest every `movePreviewInterval` (100 ms) - and drops anything unsent once `place` saves the drop. Incoming `GuestMoving` events override a tile's placement (`placementOf`, `isMoving`) until its `GuestPlaced`, its guest leaves, or `movePreviewTimeout` (1.5 s) passes with nothing newer. A tile someone else drags (`StageTile.moving`) glides linearly over 120 ms between previews instead of the usual 240 ms ease. The web player does the same (`guestMoving`/`guestMoveEnded` in `liveReducer.ts`, `.tile-guest-placed.is-moving`).
+- **The full stage**: `Guest.spotlight`, `LiveGuestsController.spotlightUserId` and `setSpotlight` (optimistic, put back on refusal); `LiveRoom` turns `guest:spotlight` into `GuestSpotlightChanged`. The profile card's menu offers "Show full screen" on a guest's card and "Back to the host" on that guest's card or the host's (`MemberAction.spotlight`/`endSpotlight`, `ModerationPolicy.canArrangeStage` - on anyone, moderators included, since it changes the stage, not what they may do). On the host's screen, their own tile ("You", not movable - `StageTile.movable`) hands the stage back when tapped. Both screens build the main video from the featured guest and put the host first in the column; each person's video sits under a `GlobalKey` per user, so swapping moves the native view instead of re-creating it. The featured guest's name shows as a `SpotlightBadge` in the top bar (not on the video, where the chat is), the host's zoom pauses meanwhile, and the featured guest gets the full-quality stream (`addRemote(prominent:)` again - safe to repeat; on a guest's stage connection the host steps down to the light one). The web player renders the featured guest's tile as the main video and the host in the column (`Stage.tsx`).
 
 ## How to add/modify/remove this feature
 
@@ -196,3 +225,4 @@ so late joiners and rejoins see the arrangement.
 - Backend (Phase 7): `guests.service.spec.ts` `setMicForceMuted` (locks and announces, quiet no-op, 404 off stage), `streams.service.spec.ts` "guest mic mute", `realtime.gateway.spec.ts` "mute suite".
 - Arranging (2026-10): `guests.service.spec.ts` `setPlacement` (moves and announces, back in line, 404 off stage) and placements in `activeGuests`/a new seat; `streams.service.spec.ts` "arranging guests on the stage" (host and `ARRANGE_GUESTS` only, live only); `realtime.gateway.spec.ts` (`guest:placed` to the room). Mobile `live_guests_controller_test.dart` "arranging the stage", `live_stage_test.dart` "arranging guests" (placement maths, drag, clamping, the grip, taps still open the card, nobody else can move a tile, Split/Floating); web `liveReducer.test.ts`.
 - Not unit-tested: the stage transitions in `ViewerScreen` (they drive the real Agora/LiveKit SDKs) - verify on two devices.
+- Live drags and the full stage (2026-10): `guests.service.spec.ts` `setSpotlight` (sets it and takes it from anyone else, gives it back, quiet when already free, 404 off stage), `spotlight` in `activeGuests`, leaving or a new seat ends it; `streams.service.spec.ts` "the full stage (spotlight)" (host and `ARRANGE_GUESTS` only, live only, `canArrangeStage`); `realtime.gateway.spec.ts` "arranging the stage" (first position at once then the latest per window, except the sender, the moderator check cached, refusals, no preview after the drop, `guest:spotlight`). Mobile: `live_guests_controller_test.dart` "while a tile is dragged" and "the full stage (spotlight)", `live_room_test.dart` (parsing and sending), `live_stage_test.dart` (`onTileMoving`, the host's tile can't move, the glide), `moderation_policy_test.dart`; web `liveReducer.test.ts`.

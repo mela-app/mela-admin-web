@@ -14,7 +14,9 @@ so `passwordHash` (and any session/token data, which now lives in `user_sessions
 later.
 
 **Profile fields**: `displayName`, `bio` (≤ 280 chars), `avatarUrl`,
-`profileVisibility` (`EVERYONE` | `FOLLOWERS` | `FRIENDS` | `ONLY_ME`) -
+`profileVisibility` (`EVERYONE` | `FOLLOWERS` | `FRIENDS` | `ONLY_ME`),
+`profileSharing` (the same values - who may share the profile's link,
+docs/features/social.md) -
 all editable via `PATCH /users/me`, which passes the DTO straight to
 Prisma (the DTO's shape *is* the allow-list). Every profile response also
 carries `followerCount`, `followingCount`, `isFollowing`, `isFollowedBy`,

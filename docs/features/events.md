@@ -40,11 +40,24 @@ carry `actorId` for the audit trail, like the Phase 4 moderation events.
 `{streamId, userId, actorId, placement}`. `RealtimeGateway` relays it to the
 room as `guest:placed`. Not audited.
 
+`guest.spotlight_changed` (`GuestsService`, 2026-10): the host or an
+`ARRANGE_GUESTS` moderator put a guest on the full stage, or gave it back to
+the host - `{streamId, userId (null = the host), actorId}`. `RealtimeGateway`
+relays it to the room as `guest:spotlight`. Not audited.
+
 `app_release.changed` (`AdminReleasesService`, 2026-10): an app update was
 published, edited or withdrawn - `{change, releaseId, actorId, platform,
 version, build, required, fields?}`. `RealtimeGateway` relays it to every
 socket as `app:update {platform}`, and `AuditEventsListener` records it as
 `app.release_<change>` (docs/features/app-updates.md).
+
+`data.cleared` / `data.reset` (`AdminDataService`, 2026-10): a super admin
+removed one kind of stored data - `{actorId, dataSet, label, olderThanDays,
+removed, signedOut}` - or everything but their own account - `{actorId,
+kept, usersRemoved}`. Emitted after the removal, so `AuditEventsListener`'s
+entry survives clearing the audit log. `RealtimeGateway` disconnects every
+socket but the admin's own on a reset, or when `signedOut` (everyone was
+signed out) - docs/features/admin.md.
 
 `recording_permission.changed` (`RecordingPermissionsService`, 2026-09-30):
 the host let a viewer record their live or took it back - relayed only to

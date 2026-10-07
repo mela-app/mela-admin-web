@@ -52,6 +52,7 @@ export function ChatLog({ streamId, hostId, live }: ChatLogProps) {
           description={filter.q || filter.status ? 'Try another search or filter.' : 'Chat messages appear here as they are sent.'}
         />
       )}
+      {moderation.pickBar(messages)}
       {messages.length > 0 && (
         <ol className="divide-y divide-zinc-100" aria-label="Chat messages, newest first">
           {messages.map((message) => (

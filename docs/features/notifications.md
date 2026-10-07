@@ -19,7 +19,15 @@ push isn't shown - the in-app banner covers it.
   catalog): `STREAM_STARTED`, `NEW_FOLLOWER`, `STREAM_INVITE`,
   `MODERATOR_GRANTED`, `GUEST_INVITE` (a host's stage invite - emitted
   since Phase 6, `onGuestRequestCreated`; see docs/features/guests.md),
-  and the security notices `PASSWORD_ADDED` / `PASSWORD_CHANGED`.
+  and the security notices `PASSWORD_ADDED` / `PASSWORD_CHANGED`, and the
+  report outcomes `REPORT_ACTIONED` / `REPORT_DISMISSED`.
+- **Report outcomes** (`onReportResolved`, on `report_case.resolved` -
+  docs/features/moderation.md): one row for each person who reported the
+  case, with no actor or stream - "We looked into something you reported
+  and took action." or "... It doesn't go against our guidelines." - never
+  what was done, or by whom. No setting, like the security notices; the app
+  shows a shield and opens nothing on a tap. A build from before them shows
+  "You have a new notification".
 - **Security notices** (`onPasswordAdded` / `onPasswordChanged`, on
   `account.password_added` / `account.password_changed` - the app's
   password settings and the console's own change, see docs/features/auth.md):

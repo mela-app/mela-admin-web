@@ -6,6 +6,9 @@ import type {
   ChatModerationStatus,
   ModeratorCapability,
   PlatformRole,
+  ReportCaseStatus,
+  ReportReason,
+  ReportTargetType,
   SessionPlatform,
   StreamEndReason,
   StreamLayout,
@@ -101,4 +104,32 @@ export const ACTOR_ROLE_LABELS: Record<AuditActorRole, string> = {
   MODERATOR: 'Moderator',
   USER: 'User',
   SYSTEM: 'System',
+}
+
+// As the app words them to the person reporting.
+export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
+  SPAM: 'Spam',
+  SCAM: 'Scam or fraud',
+  HARASSMENT: 'Harassment or bullying',
+  HATE: 'Hate speech',
+  VIOLENCE: 'Violence or threats',
+  SEXUAL_CONTENT: 'Nudity or sexual content',
+  CHILD_SAFETY: 'Child safety',
+  SELF_HARM: 'Suicide or self-harm',
+  ILLEGAL: 'Illegal activity',
+  IMPERSONATION: 'Impersonation',
+  OTHER: 'Something else',
+}
+
+export const REPORT_TARGET_LABELS: Record<ReportTargetType, string> = {
+  LIVE: 'Live',
+  CHAT_MESSAGE: 'Chat message',
+  USER: 'Account',
+  DIRECT_MESSAGE: 'Private message',
+}
+
+export const REPORT_STATUS_LABELS: Record<ReportCaseStatus, string> = {
+  OPEN: 'Open',
+  ACTIONED: 'Action taken',
+  DISMISSED: 'No violation',
 }

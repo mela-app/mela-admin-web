@@ -6,6 +6,7 @@ import { Card, Stat } from '../../components/ui/Card'
 import { EmptyState, ErrorState, Skeleton } from '../../components/ui/feedback'
 import { PageHeader, RelativeTime } from '../../components/ui/misc'
 import { useAuth } from '../../lib/auth-context'
+import { cn } from '../../lib/cn'
 import { formatDuration, formatNumber } from '../../lib/format'
 import { useOverview } from '../../lib/queries'
 import type { Overview } from '../../lib/types'
@@ -42,9 +43,24 @@ export function OverviewPage() {
 function OverviewBody({ data }: { data: Overview | undefined }) {
   const auth = useAuth()
   const showLives = auth.can('VIEW_LIVES')
+  const showReports = auth.can('VIEW_REPORTS')
+  const reports = data?.reports
   return (
     <div className="space-y-6">
-      <div className="grid gap-px overflow-hidden rounded-lg border border-zinc-200 bg-zinc-200 sm:grid-cols-3">
+      <div
+        className={cn(
+          'grid gap-px overflow-hidden rounded-lg border border-zinc-200 bg-zinc-200',
+          showReports ? 'sm:grid-cols-2 xl:grid-cols-4' : 'sm:grid-cols-3',
+        )}
+      >
+        {showReports && (
+          <KpiCell
+            label="Open reports"
+            value={reports?.open}
+            hint={reports ? (reports.urgent > 0 ? `${formatNumber(reports.urgent)} urgent` : 'None urgent') : undefined}
+            to="/reports"
+          />
+        )}
         <KpiCell
           label="Live now"
           value={data?.live.streams}
@@ -104,7 +120,7 @@ function KpiCell({
   value: number | undefined
   hint?: string
   // Only a link for staff who can open the page.
-  to?: '/streams' | '/users'
+  to?: '/streams' | '/users' | '/reports'
 }) {
   const stat = (
     <Stat

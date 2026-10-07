@@ -78,3 +78,30 @@ export function SignOutEverywhereDialog({ user, onClose }: DialogProps) {
     />
   )
 }
+
+/** For someone who asked to be deleted without the app (docs/features/auth.md) - super admins only. */
+export function DeleteUserDialog({ user, onClose, onDeleted }: DialogProps & { onDeleted: () => void }) {
+  const remove = useAdminMutation(
+    ({ userId, reason }: { userId: string; reason: string }) => actions.deleteUser(userId, reason),
+    { toastErrors: false, success: 'Account deleted for good.' },
+  )
+  return (
+    <ConfirmDialog
+      open={user !== null}
+      onClose={onClose}
+      title={`Delete @${user?.username ?? ''} for good?`}
+      description="Their account and everything in it - profile, lives and their chat, messages, follows - is deleted, and they're signed out everywhere. Reports about them and the audit log stay, without their name. This can't be undone."
+      confirmLabel="Delete account"
+      tone="danger"
+      reason={{
+        label: 'Reason',
+        hint: 'Kept in the audit log, e.g. how they asked.',
+        placeholder: 'e.g. Asked by email on 7 October, from the address on the account',
+        required: true,
+        minLength: 3,
+        maxLength: 500,
+      }}
+      onConfirm={(reason) => remove.mutateAsync({ userId: user!.id, reason }).then(onDeleted)}
+    />
+  )
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appUpdatesSearch, auditSearch, liveChatSearch, messagesSearch, safeRedirect, streamsSearch, usersSearch } from './search'
+import { appUpdatesSearch, auditSearch, liveChatSearch, messagesSearch, reportsSearch, safeRedirect, streamsSearch, usersSearch } from './search'
 
 describe('search params', () => {
   it('keeps valid filters and drops anything else', () => {
@@ -51,6 +51,17 @@ describe('search params', () => {
     })
     expect(liveChatSearch({}).day).toBeUndefined()
     expect(appUpdatesSearch({ page: '3', platform: 'IOS' })).toEqual({ page: 3, pageSize: undefined })
+  })
+
+  it('keeps the reports status, type and open case - open ones stay out of the URL', () => {
+    expect(reportsSearch({ status: 'DISMISSED', type: 'DIRECT_MESSAGE', report: 'case-1', page: '2' })).toEqual({
+      status: 'DISMISSED',
+      type: 'DIRECT_MESSAGE',
+      report: 'case-1',
+      page: 2,
+      pageSize: undefined,
+    })
+    expect(reportsSearch({ status: 'OPEN', type: 'POST' })).toMatchObject({ status: undefined, type: undefined })
   })
 
   it('never redirects off the console after sign-in', () => {

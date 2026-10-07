@@ -59,6 +59,20 @@ entry survives clearing the audit log. `RealtimeGateway` disconnects every
 socket but the admin's own on a reset, or when `signedOut` (everyone was
 signed out) - docs/features/admin.md.
 
+Reports and account deletion (2026-10, docs/features/moderation.md and
+docs/features/auth.md) added three. `report_case.resolved`
+(`AdminReportsService`): a case was decided - `{caseId, outcome, actorId,
+targetType, label, reporterIds, note}`; `NotificationsService` tells each
+reporter, `AuditEventsListener` records `report.actioned` / `.dismissed`.
+`direct_message.erased` (`DirectMessagesService.erase`): a reported private
+message was removed - `{messageId, senderId, recipientId, actorId,
+recipientUnreadCount}`; `RealtimeGateway` sends both people
+`message:deleted` and the recipient `message:unread_count`, and it's audited
+without the text. `account.deleted` (`AccountDeletionService`): `{userId,
+actorId (null when they deleted it themselves), reason}`; `RealtimeGateway`
+closes their sockets, `AuditEventsListener` records `account.deleted` or
+`user.deleted`.
+
 `recording_permission.changed` (`RecordingPermissionsService`, 2026-09-30):
 the host let a viewer record their live or took it back - relayed only to
 that viewer's `user:{id}` room as `recording:permission {streamId, allowed}`

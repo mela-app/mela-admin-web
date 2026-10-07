@@ -17,6 +17,8 @@ export type AdminPermission =
   | 'VIEW_PRIVATE_MESSAGES'
   | 'VIEW_APP_RELEASES'
   | 'MANAGE_APP_RELEASES'
+  | 'VIEW_REPORTS'
+  | 'MANAGE_REPORTS'
 export type UserStatus = 'ACTIVE' | 'SUSPENDED'
 export type SessionPlatform = 'ANDROID' | 'IOS' | 'WEB' | 'UNKNOWN'
 export type StreamStatus = 'SCHEDULED' | 'LIVE' | 'ENDED' | 'LOCKED'
@@ -49,6 +51,20 @@ export type AuditCategory =
   | 'ADMIN'
 export type AuditActorRole = 'SUPER_ADMIN' | 'PLATFORM_MODERATOR' | 'HOST' | 'MODERATOR' | 'USER' | 'SYSTEM'
 export type AppPlatform = 'ANDROID' | 'IOS'
+export type ReportTargetType = 'LIVE' | 'CHAT_MESSAGE' | 'USER' | 'DIRECT_MESSAGE'
+export type ReportReason =
+  | 'SPAM'
+  | 'SCAM'
+  | 'HARASSMENT'
+  | 'HATE'
+  | 'VIOLENCE'
+  | 'SEXUAL_CONTENT'
+  | 'CHILD_SAFETY'
+  | 'SELF_HARM'
+  | 'ILLEGAL'
+  | 'IMPERSONATION'
+  | 'OTHER'
+export type ReportCaseStatus = 'OPEN' | 'ACTIONED' | 'DISMISSED'
 
 export interface Page<T> {
   items: T[]
@@ -113,6 +129,8 @@ export interface Overview {
   users: { total: number; new24h: number; suspended: number }
   activity24h: { messages: number; streamsStarted: number; alertsSent: number }
   daily: Array<{ day: string; streams: number; signups: number }>
+  // Null for staff who can't see reports.
+  reports: { open: number; urgent: number } | null
 }
 
 export interface StreamRow {
@@ -381,4 +399,64 @@ export interface DataSet {
 export interface DataOverview {
   runningLives: number
   sets: DataSet[]
+}
+
+// Someone in a report, and whether their account is suspended.
+export interface ReportPerson extends Person {
+  status: UserStatus
+}
+
+// What was reported, as it was when first reported - kept after it's removed.
+export interface ReportSnapshot {
+  // Whose it is: the host, the sender, the account.
+  person?: Person
+  // A live.
+  title?: string
+  category?: string | null
+  startedAt?: string | null
+  // A chat or private message.
+  text?: string
+  imageUrl?: string | null
+  sentAt?: string
+  liveTitle?: string
+  // An account.
+  bio?: string | null
+}
+
+// One reported thing, however many people reported it.
+export interface ReportCaseRow {
+  id: string
+  targetType: ReportTargetType
+  targetId: string
+  streamId: string | null
+  snapshot: ReportSnapshot
+  status: ReportCaseStatus
+  // Child safety or self-harm: first in the list.
+  urgent: boolean
+  reportCount: number
+  lastReportedAt: string
+  createdAt: string
+  resolvedAt: string | null
+  resolutionNote: string | null
+  reportedUser: ReportPerson | null
+  resolvedBy: ReportPerson | null
+  // e.g. "Chat message from @ana".
+  label: string
+  // Most often first.
+  reasons: Array<{ reason: ReportReason; count: number }>
+}
+
+export interface ReportCaseDetail extends ReportCaseRow {
+  reports: Array<{
+    id: string
+    reason: ReportReason
+    details: string | null
+    createdAt: string
+    reporter: ReportPerson | null
+  }>
+  // False once it was removed, or the account deleted.
+  targetExists: boolean
+  live: { id: string; title: string; status: StreamStatus } | null
+  // Other cases about the same account.
+  otherCases: number
 }

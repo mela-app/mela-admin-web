@@ -71,6 +71,8 @@ Where its tests live and what they cover.
 | Admin console & audit trail | [admin.md](./admin.md) | Done (Phase 8) |
 | Live chat by host and day (console) | [admin.md](./admin.md), [chat.md](./chat.md) | Done (2026-10) |
 | App updates (update prompts, required updates, what's new) | [app-updates.md](./app-updates.md) | Done (2026-10) |
+| Reports (in the app; the console's Reports page) | [moderation.md](./moderation.md), [admin.md](./admin.md) | Done (2026-10) |
+| Account deletion (in the app, by a super admin, and the `/delete-account` page) | [auth.md](./auth.md) | Done (2026-10) |
 | Brand (Mela logo, icons, splash) & production Docker deploy | [Brand assets](../../README.md#brand-assets) (this repository's README), [../deployment.md](../deployment.md) | Done (Phase 9) |
 
 Phase 1.5 (hardening) changes `auth`, `realtime`, and `streams` in place rather than adding new modules — update those docs as each task lands. See [task-breakdown.md](../task-breakdown.md) for the phase map.

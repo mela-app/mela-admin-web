@@ -44,6 +44,25 @@ export const ACCESS_AREAS: AccessArea[] = [
     ],
   },
   {
+    key: 'reports',
+    label: 'Reports',
+    levels: [
+      {
+        value: 'view',
+        label: 'View',
+        description: 'See what users reported and why - reported private messages included.',
+        grants: ['VIEW_REPORTS'],
+      },
+      {
+        value: 'decide',
+        label: 'Decide',
+        description:
+          'Also decide on reports - everyone who reported it is told - and remove a reported private message.',
+        grants: ['VIEW_REPORTS', 'MANAGE_REPORTS'],
+      },
+    ],
+  },
+  {
     key: 'alerts',
     label: 'Alerts',
     levels: [

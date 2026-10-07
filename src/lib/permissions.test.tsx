@@ -18,6 +18,8 @@ describe('access levels', () => {
     expect(levelOf(area('appUpdates'), ['VIEW_APP_RELEASES'])?.value).toBe('view')
     expect(levelOf(area('appUpdates'), ['VIEW_APP_RELEASES', 'MANAGE_APP_RELEASES'])?.value).toBe('publish')
     expect(levelOf(area('appUpdates'), ['MANAGE_APP_RELEASES'])).toBeNull()
+    expect(levelOf(area('reports'), ['VIEW_REPORTS'])?.value).toBe('view')
+    expect(levelOf(area('reports'), ['VIEW_REPORTS', 'MANAGE_REPORTS'])?.value).toBe('decide')
   })
 
   it('changes one area and leaves the others alone', () => {

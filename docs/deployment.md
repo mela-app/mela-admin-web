@@ -83,6 +83,7 @@ than by the app itself.
    | `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | two different `openssl rand -hex 32` values |
    | `LIVEKIT_API_URL` | `http://host.docker.internal:7880` - LiveKit uses host networking, so it is not a container name |
    | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | the first super admin, created by the migrate job |
+   | `SUPPORT_EMAIL` | where people without the app ask to have their account deleted - shown on `https://<api domain>/delete-account`, the address Google Play's Data safety form asks for. Blank: the page only gives the steps in the app |
 
    Compose does **not** expand `${...}` inside an `env_file`, so unlike the
    .NET apps on this server, `DATABASE_URL` spells its values out rather

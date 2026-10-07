@@ -25,6 +25,7 @@ const TARGET_NAMES: Record<string, string> = {
   CONVERSATION: 'Private conversation',
   APP_RELEASE: 'App update',
   DATA: 'Stored data',
+  REPORT: 'Report',
 }
 
 interface AuditTableProps {
@@ -331,6 +332,13 @@ function TargetLink({ entry, onNavigate }: { entry: AuditEntry; onNavigate: () =
       if (!auth.isSuperAdmin) break
       return (
         <Link to="/data" onClick={onNavigate} className={className}>
+          {label}
+        </Link>
+      )
+    case 'REPORT':
+      if (!auth.can('VIEW_REPORTS')) break
+      return (
+        <Link to="/reports" search={{ report: entry.targetId }} onClick={onNavigate} className={className}>
           {label}
         </Link>
       )

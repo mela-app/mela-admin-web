@@ -29,6 +29,8 @@ import type {
   PlatformRole,
   PrivateConversationPage,
   PrivateTranscript,
+  ReportCaseDetail,
+  ReportCaseRow,
   StaffMember,
   StaffRole,
   StreamDetail,
@@ -40,6 +42,7 @@ import type {
   AuditSearch,
   LiveChatSearch,
   MessagesSearch,
+  ReportsSearch,
   StreamsSearch,
   UsersSearch,
 } from '../app/search'
@@ -305,6 +308,29 @@ export function useDataOverview() {
   })
 }
 
+/** Reported things, the urgent and latest first; the open ones keep themselves current. */
+export function useReports(search: ReportsSearch) {
+  const status = search.status ?? 'OPEN'
+  return useQuery({
+    queryKey: ['reports', status, search.type, paging(search)],
+    queryFn: ({ signal }) =>
+      api<Page<ReportCaseRow>>('/admin/reports', {
+        signal,
+        query: { status, type: search.type, ...paging(search) },
+      }),
+    placeholderData: keepPreviousData,
+    refetchInterval: status === 'OPEN' ? 30_000 : false,
+  })
+}
+
+/** One case: what was reported, every report about it, and what became of it. */
+export function useReport(caseId: string) {
+  return useQuery({
+    queryKey: ['report', caseId],
+    queryFn: ({ signal }) => api<ReportCaseDetail>(`/admin/reports/${id(caseId)}`, { signal }),
+  })
+}
+
 // ---- Writes ---------------------------------------------------------------
 
 export const actions = {
@@ -321,6 +347,9 @@ export const actions = {
   reinstateUser: (userId: string) => api<{ ok: true }>(`/admin/users/${id(userId)}/reinstate`, { method: 'POST' }),
   revokeUserSessions: (userId: string) =>
     api<{ ok: true; revoked: number }>(`/admin/users/${id(userId)}/sessions/revoke`, { method: 'POST' }),
+  // Super admins only, for someone who asked without the app.
+  deleteUser: (userId: string, reason: string) =>
+    api<{ ok: true }>(`/admin/users/${id(userId)}/delete`, { method: 'POST', body: { reason } }),
   changeRole: (userId: string, platformRole: PlatformRole, permissions?: AdminPermission[]) =>
     api<{ ok: true }>(`/admin/users/${id(userId)}/role`, { method: 'PATCH', body: { platformRole, permissions } }),
   changePermissions: (userId: string, permissions: AdminPermission[]) =>
@@ -372,6 +401,11 @@ export const actions = {
     api<{ removed: number }>('/admin/data/clear', { method: 'POST', body }),
   resetData: (body: { password: string; keep: KeepOnReset[] }) =>
     api<{ usersRemoved: number }>('/admin/data/reset', { method: 'POST', body }),
+
+  resolveReport: (caseId: string, outcome: 'ACTIONED' | 'DISMISSED', note?: string) =>
+    api<ReportCaseDetail>(`/admin/reports/${id(caseId)}/resolve`, { method: 'POST', body: { outcome, note } }),
+  removeReportedMessage: (caseId: string) =>
+    api<{ removed: boolean }>(`/admin/reports/${id(caseId)}/remove-message`, { method: 'POST' }),
 }
 
 interface AdminMutationOptions<TResult, TVariables> {

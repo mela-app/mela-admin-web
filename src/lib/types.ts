@@ -361,3 +361,24 @@ export interface AppPlatformStatus {
 export interface AppReleasePage extends Page<AppRelease> {
   platforms: Record<AppPlatform, AppPlatformStatus>
 }
+
+export type DataGroup = 'people' | 'lives' | 'messages' | 'console'
+// 'created': only what's older than some days; 'lastUsed': only devices unused for some days.
+export type DataAgeFilter = 'created' | 'lastUsed'
+// What a reset can leave in place.
+export type KeepOnReset = 'appUpdates' | 'bannedPhrases' | 'auditLog'
+
+export interface DataSet {
+  key: string
+  group: DataGroup
+  label: string
+  description: string
+  tables: string[]
+  ageFilter: DataAgeFilter | null
+  count: number
+}
+
+export interface DataOverview {
+  runningLives: number
+  sets: DataSet[]
+}

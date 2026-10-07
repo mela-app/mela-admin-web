@@ -18,8 +18,10 @@ import type {
   BannedPhraseSeverity,
   ChatLogPage,
   ChatModerationStatus,
+  DataOverview,
   DeviceSession,
   HostChat,
+  KeepOnReset,
   LiveChatHostPage,
   Overview,
   Page,
@@ -295,6 +297,14 @@ export function useAppReleases(page: number) {
   })
 }
 
+/** How much of each kind of data is stored - super admins only. */
+export function useDataOverview() {
+  return useQuery({
+    queryKey: ['data'],
+    queryFn: ({ signal }) => api<DataOverview>('/admin/data', { signal }),
+  })
+}
+
 // ---- Writes ---------------------------------------------------------------
 
 export const actions = {
@@ -303,6 +313,8 @@ export const actions = {
   unlockStream: (streamId: string) => api<StreamDetail>(`/admin/streams/${id(streamId)}/unlock`, { method: 'POST' }),
   deleteMessage: (streamId: string, messageId: string) =>
     api<{ ok: true }>(`/admin/streams/${id(streamId)}/chat/${id(messageId)}`, { method: 'DELETE' }),
+  deleteMessages: (messageIds: string[]) =>
+    api<{ deleted: number }>('/admin/chat/messages/delete', { method: 'POST', body: { messageIds } }),
 
   suspendUser: (userId: string, reason: string) =>
     api<{ ok: true; lockedLives: number }>(`/admin/users/${id(userId)}/suspend`, { method: 'POST', body: { reason } }),
@@ -355,6 +367,11 @@ export const actions = {
   changeEmail: (email: string, currentPassword: string) =>
     api<AdminView>('/admin/me/email', { method: 'POST', body: { email, currentPassword } }),
   revokeMySession: (sessionId: string) => api<{ ok: true }>(`/admin/me/sessions/${id(sessionId)}`, { method: 'DELETE' }),
+
+  clearData: (body: { dataSet: string; olderThanDays?: number; password: string }) =>
+    api<{ removed: number }>('/admin/data/clear', { method: 'POST', body }),
+  resetData: (body: { password: string; keep: KeepOnReset[] }) =>
+    api<{ usersRemoved: number }>('/admin/data/reset', { method: 'POST', body }),
 }
 
 interface AdminMutationOptions<TResult, TVariables> {

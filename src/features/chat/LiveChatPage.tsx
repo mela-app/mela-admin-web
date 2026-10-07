@@ -54,7 +54,7 @@ export function LiveChatPage() {
     <>
       <PageHeader
         title="Live chat"
-        description="Chat from lives, one day at a time. Pick a host to read their chat that day, live by live - every message, including the ones filtered or deleted."
+        description="Chat from lives, one day at a time. Pick a host to read their chat that day, live by live - every message, including the ones the filter hid or a host or moderator deleted. Messages you delete here are erased for good."
       />
 
       <Card flush>
@@ -205,6 +205,7 @@ function HostChatView({ hostId, day, range, isToday }: HostChatViewProps) {
           description={filtered ? 'Try another search or filter.' : 'Pick another day to read their chat then.'}
         />
       )}
+      {host && moderation.pickBar(messages)}
       {host &&
         chatSections(messages, lives).map((section) => (
           <section key={`${section.streamId}:${section.messages[0].id}`} aria-label={section.live?.title ?? 'A live'}>

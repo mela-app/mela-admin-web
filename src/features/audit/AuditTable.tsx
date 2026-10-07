@@ -24,6 +24,7 @@ const TARGET_NAMES: Record<string, string> = {
   PHRASE: 'Banned phrase',
   CONVERSATION: 'Private conversation',
   APP_RELEASE: 'App update',
+  DATA: 'Stored data',
 }
 
 interface AuditTableProps {
@@ -323,6 +324,13 @@ function TargetLink({ entry, onNavigate }: { entry: AuditEntry; onNavigate: () =
       if (!auth.can('VIEW_APP_RELEASES')) break
       return (
         <Link to="/app-updates" onClick={onNavigate} className={className}>
+          {label}
+        </Link>
+      )
+    case 'DATA':
+      if (!auth.isSuperAdmin) break
+      return (
+        <Link to="/data" onClick={onNavigate} className={className}>
           {label}
         </Link>
       )

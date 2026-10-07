@@ -31,7 +31,8 @@ room bans; `MANAGE_GUEST_REQUESTS` and `REMOVE_GUESTS` gate answering raised
 hands and taking guests off the stage (Phase 6, docs/features/guests.md);
 `MUTE_CHAT` gates room chat mute/unmute (Phase 7, docs/features/moderation.md),
 `FORCE_MUTE_GUESTS` locking a guest's mic (Phase 7, docs/features/guests.md)
-and `ARRANGE_GUESTS` moving and resizing guests' tiles on the stage
+and `ARRANGE_GUESTS` moving and resizing guests' tiles on the stage, and
+putting a guest on the full stage
 (2026-10, docs/features/guests.md - part of the "Guest manager" preset).
 **Presets** ("Chat moderator",
 "Guest manager", "Full moderator" from plan §6.9) are a pure mobile-UI

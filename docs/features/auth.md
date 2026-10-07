@@ -1,15 +1,120 @@
 # Auth
 
-**Location**: `apps/backend/src/auth` (+ `apps/mobile/lib/core/api_client.dart`, `session_store.dart`, `features/auth/`)
+**Location**: `apps/backend/src/auth` (+ `auth/identity/` for verified sign-up; mobile `lib/core/api_client.dart`, `session_store.dart`, `features/auth/`; web `src/auth/`)
 **Plan reference**: plan §8 (`user_sessions`), §11 (security); task-breakdown Phase 0, Phase 1.5 (#2, #3, #4, #8)
-**Depends on**: `common/prisma`, `common/events`, `@nestjs/jwt`, `argon2`
+**Depends on**: `common/prisma`, `common/events`, `@nestjs/jwt`, `argon2`, `firebase-admin` (checking sign-up identity tokens)
 **Depended on by**: `users`, and every module that guards a route with `JwtAuthGuard`
 
 ## What it does
 
-Signup / login / refresh / logout with **one session per signed-in device**
-(`user_sessions`), so signing in on a second phone never signs the first
-one out. Passwords are hashed with argon2.
+Sign-up with a proven identity, then login / refresh / logout with **one
+session per signed-in device** (`user_sessions`), so signing in on a
+second phone never signs the first one out. Passwords are hashed with argon2.
+
+### Verified sign-up (client request, 2026-10)
+
+Every new account starts from an identity someone proved is theirs - a
+Google account, or an email whose owner tapped the link sent to it. A phone
+number is the next way to prove it (below).
+
+- **Firebase Authentication proves it; Mela keeps the account.** The app
+  (and the web player) signs the person in to Firebase - with Google, or
+  with an email and password once Firebase's emailed link was tapped - and
+  sends the resulting **ID token** to the API. `FirebaseIdentityVerifier`
+  (`auth/identity/`) checks its signature, audience (`FIREBASE_PROJECT_ID`),
+  issuer and expiry against Google's public keys - no service account
+  needed - and `identityFromFirebaseClaims` turns it into a
+  `VerifiedIdentity`: `google` (Google's own account id `sub`, which never
+  changes, plus the email Google vouched for) or `email` (only with
+  `email_verified`; else `403 EMAIL_NOT_VERIFIED`). Anything else is
+  `400 UNSUPPORTED_IDENTITY`. Once Mela has the account, the client
+  deletes the person from Firebase and signs out of it: Firebase holds no
+  password or session, and the email sign-up's password lives only in Mela
+  (argon2). Google and the emailed link are free; nothing is sent from Mela.
+- **`POST /v1/auth/identity {idToken, platform?}`** (10/min per IP): signs
+  in when the identity has an account - `{status: 'SIGNED_IN',
+  accessToken, refreshToken}` - or answers `{status: 'NEEDS_ACCOUNT',
+  email, displayName, suggestedUsername}` without creating anything. A
+  Google account is found by its linked identity (`user_identities`,
+  unique `(provider, subject)`), else by the email Google vouched for
+  (case-insensitive), which links the two. A confirmed email never signs
+  into an account - it only starts one (`409 EMAIL_TAKEN` when the email
+  is in use, told only to whoever proved it, so no stranger learns which
+  emails have accounts).
+- **`POST /v1/auth/identity/signup {idToken, username, displayName,
+  password?}`** (5/min): creates the account with `emailVerifiedAt` set -
+  a password only for an email sign-up (`400 PASSWORD_REQUIRED`), never for
+  Google (`400 PASSWORD_NOT_ALLOWED`: Google accounts have no password).
+  Taken usernames are refused whatever their case (`409 USERNAME_TAKEN`),
+  and a race on the unique indexes maps to the same codes. Emits
+  `user.registered` with `method` (`google` | `email`, audited).
+- **`GET /v1/auth/username-available?username=`** (30/min): `{available}`,
+  case-insensitive. Suggestions (`usernameCandidates`) come from the
+  person's Google name, else their email's local part (letters outside
+  a-z drop out; `mela` when nothing is left), then with 2, 3, 4 random
+  digits - checked in one query per round.
+- **Existing accounts.** Password login carries on unchanged. Continue with
+  Google on an account with the same email links them
+  (`account.identity_linked`, audited). **If that account's email was
+  never proven** (`emailVerifiedAt` null - every account made before this),
+  whoever made it may not own the email, so the Google owner takes it over:
+  its password stops working, every other device is signed out (the
+  realtime gateway disconnects their sockets), and from then on it signs in
+  with Google. An account already linked to a different Google account is
+  refused (`409 GOOGLE_ACCOUNT_MISMATCH`). **Staff accounts never sign in
+  with Google** (`403 PASSWORD_SIGN_IN_REQUIRED`): the console checks their
+  password, and a mistyped staff email must not be claimable. For the same
+  reason the console won't make a password-less (Google) account staff -
+  it creates a separate staff account instead. Suspended accounts get
+  `403 ACCOUNT_SUSPENDED`.
+- **Login** treats a Google-only account like a wrong password, checking a
+  dummy argon2 hash so it takes as long, and says nothing about how the
+  account signs in. The app's login form says "Signed up with Google? Use
+  Continue with Google." instead.
+- **A password, any time later - never required** (client request,
+  2026-10): Settings > Account > Password in the app. `GET
+  /v1/me/sign-in-methods` says `{email, hasPassword, google: {email} | null,
+  managedByConsole}`; `PUT /v1/me/password` `{newPassword (8-72),
+  currentPassword?, idToken?}` sets it (5/min, `AccountPasswordService`).
+  Whoever asks proves it's them right now: with the **current password**, or
+  with a fresh Google sign-in whose subject is **this account's linked
+  Google identity** (`403 GOOGLE_ACCOUNT_MISMATCH` otherwise; a confirmed
+  email won't do). Google is the only way for an account made with Google
+  (`GOOGLE_CONFIRMATION_REQUIRED`), and the way back for anyone who forgot
+  theirs ("Forgot it? Confirm with Google instead") - no weaker than
+  Continue with Google, which that Google account can already use. Without
+  Google an existing password must be given (`CURRENT_PASSWORD_REQUIRED`,
+  `WRONG_PASSWORD`, `SAME_PASSWORD`). The **first** password leaves every
+  device signed in (`account.password_added`); a **change** signs out every
+  other device (`account.password_changed`). Both are audited with
+  `confirmedWith: password | google` and leave a security notice in the
+  app's notifications (docs/features/notifications.md). A rejected Google
+  token answers 400, not 401 - on a signed-in route the app reads 401 as
+  its own session ending. **Staff** passwords follow the console's stricter
+  rules, so they change there only (`403 STAFF_ACCOUNT`; the app shows
+  "Change it in the admin console").
+- **The old sign-up** (`POST /v1/auth/signup`, never verified) answers
+  `400 APP_UPDATE_REQUIRED` ("Update Mela to sign up") for apps from before
+  this; the web player's old sign-up route is gone.
+- **A phone number next**: Firebase phone sign-in (paid per SMS on
+  Firebase's pay-as-you-go plan) gives an ID token with `phone_number` and
+  `sign_in_provider: 'phone'`. It needs a `phone` case in
+  `identityFromFirebaseClaims`, a `PHONE` value in `IdentityProvider`
+  (subject = the E.164 number) and `users.email` made optional for
+  phone-only accounts - the endpoints and both clients' flows stay as they are.
+
+**Setup (once, in the Firebase console - project `FIREBASE_PROJECT_ID`):**
+Authentication > Sign-in method: enable **Google** and **Email/Password**.
+Project settings > the Android app: add the **SHA-1 and SHA-256** of every
+key that signs the app (the debug keystore's for development builds; the
+release key's), then download `google-services.json` again - it now carries
+the OAuth clients Google sign-in needs. For the web player: add a **Web
+app**, put its `apiKey`/`appId` in the API's `FIREBASE_WEB_API_KEY` /
+`FIREBASE_WEB_APP_ID`, and add the API's domain to Authentication >
+Settings > **Authorized domains**. iOS needs `GoogleService-Info.plist` and
+its `REVERSED_CLIENT_ID` as a URL scheme in `Info.plist`.
+
+### Sessions
 
 - **Login/signup** create a session row (optionally tagged with the
   device's `platform`: `ANDROID` / `IOS` / `WEB`) and return a 15-minute
@@ -45,8 +150,8 @@ one out. Passwords are hashed with argon2.
   or "sign out everywhere" stops an unexpired access token on its next
   request, not 15 minutes later. It attaches `request.user` (incl.
   `sessionId`); `@CurrentUser()` reads it back out.
-- **Web sign-in** (`WebAuthController`, `POST /v1/auth/web/signup`,
-  `/login`, `/refresh`, `/logout` - the share page's web player on a
+- **Web sign-in** (`WebAuthController`, `POST /v1/auth/web/identity`,
+  `/identity/signup`, `/login`, `/refresh`, `/logout` - the share page's web player on a
   computer, docs/features/share.md): the same accounts, sessions
   (platform `WEB`), rotation and suspension rules as above, but the
   refresh token never reaches the page's JavaScript - it's an httpOnly
@@ -57,10 +162,18 @@ one out. Passwords are hashed with argon2.
   marker in `localStorage`, so a fresh visit knows to ask). Every route
   wants `X-Requested-With: mela-web` - a cross-site form can't send that
   header, which with `SameSite=Strict` shuts out cross-site request
-  forgery - and is rate-limited per IP (sign-up 5/min, login 10/min,
+  forgery - and is rate-limited per IP (Google 10/min, new account 5/min, login 10/min,
   refresh 30/min). A refused refresh clears the cookie; logout ends the
   session and clears it. The page renews and signs in only through these
   routes; everything else is the normal API with the access token.
+  **Continue with Google on the web**: the share page passes the Firebase
+  Web app's public settings in its player config (only when
+  `FIREBASE_WEB_API_KEY` / `FIREBASE_WEB_APP_ID` are set) and widens its
+  CSP just for Google's popup: `script-src https://apis.google.com` and
+  `frame-src https://{authDomain}`. The player loads Firebase as its own
+  chunk when the sign-in dialog opens (so the popup opens straight from the
+  click), keeps Firebase in memory only, and someone new picks a username
+  in the dialog. Without those settings it says to sign up in the app.
 
 ## Mobile side
 
@@ -92,12 +205,35 @@ one out. Passwords are hashed with argon2.
   network round trip, works offline.
 - **Logout** asks for confirmation first (`core/widgets/confirm_dialog.dart`:
   a native iOS alert on iPhone, a Material dialog on Android).
+- **Signing in or up** (`features/auth/login_screen.dart`): Continue with
+  Google first, then password login for existing accounts, then "Sign up
+  with email". `SignUpFlow` (`sign_up_flow.dart`, a `ChangeNotifier`) runs
+  the steps - `start`, `emailForm`, `checkEmail`, `chooseUsername` - over
+  an `IdentityVerifier` (`identity/`; Firebase in the app,
+  `firebase_auth` + `google_sign_in`, a fake in tests). The email form checks
+  the username is free before Firebase sends the link; "Check your email"
+  looks for the tapped link every 4 s and whenever the app comes back to
+  the foreground, with "I've confirmed it", "Send the link again" (after
+  30 s) and "Use a different email". A username taken in the meantime only
+  asks for another - the email stays confirmed. Android's back button goes
+  back a step. Without Firebase (no `google-services.json`) the buttons say
+  signing up isn't available in that build; login still works.
+- **Password settings** (`features/auth/account/password_screen.dart`,
+  route `/settings/password`, shut while hosting like the rest of the
+  account settings): Settings > Account shows "Add a password" for an
+  account made with Google, "Password" otherwise, and "Change it in the
+  admin console" for staff (`PasswordTile`, over `signInMethodsProvider`).
+  Adding asks for the new password twice, then "Confirm with Google"
+  (`IdentityVerifier.signInWithGoogle()`, `finish()` once the API
+  answered); changing asks for the current one too, or Google after
+  "Forgot it?". A tapped security notice opens it.
 
 ## How to add to this feature
 
-- New login method (e.g. OAuth/social login): add an endpoint in
-  `auth.controller.ts` that ends with the same private `startSession()` in
-  `auth.service.ts` - never mint tokens elsewhere.
+- New login method (e.g. a phone number): add its case to
+  `identityFromFirebaseClaims` and `IdentityProvider` (see "A phone number
+  next" above) - sign-in still ends in `AuthService.startSessionFor`; never
+  mint tokens elsewhere.
 - "Sign out of all devices" for the user themselves: an authenticated
   endpoint calling `revokeAllSessions` (the console already has it for
   staff, `POST /admin/users/:id/sessions/revoke`).
@@ -110,7 +246,7 @@ one out. Passwords are hashed with argon2.
 Token lifetimes are env-driven (`JWT_ACCESS_TTL_SECONDS` /
 `JWT_REFRESH_TTL_SECONDS`). The reuse grace window is
 `REFRESH_REUSE_GRACE_MS` in `auth.service.ts`. Rate limits on
-`/auth/signup` and `/auth/login` are per-route `@Throttle(...)` in
+`/auth/identity`, `/auth/identity/signup` and `/auth/login` are per-route `@Throttle(...)` in
 `auth.controller.ts`.
 
 ## How to remove this feature
@@ -122,8 +258,8 @@ everything downstream keeps working.
 
 ## Tests
 
-- Backend `auth.service.spec.ts`: duplicate signup, signup emits
-  `user.registered` and creates a session, unknown/suspended login rejected,
+- Backend `auth.service.spec.ts`: unknown/suspended login rejected, a
+  Google-only account refused like a wrong password,
   two logins = two independent sessions, rotation, in-grace retry,
   post-grace replay ends the session, suspended user can't refresh and
   loses all sessions, signed-out session rejected, pre-session (no `sid`)
@@ -134,9 +270,30 @@ everything downstream keeps working.
   access token whose session has ended is refused.
   `web-auth.controller.spec.ts`: the web routes refuse a request without
   `X-Requested-With: mela-web`, set the httpOnly cookie and return only the
-  access token, sign up and log in as `WEB`, refresh from the cookie
+  access token, continue with Google (the cookie only once signed in), create
+  the account and log in as `WEB`, refresh from the cookie
   (clearing it when refused), and log out. `watch-ticket.service.spec.ts`:
   a watch ticket isn't an access token, nor the other way round.
+  `identity/identity-sign-in.service.spec.ts`: signing in a linked Google
+  account, a newcomer's suggested start, linking a proven account (password
+  and devices kept) vs taking over an unproven one (password cleared,
+  sessions ended before the new one), a mismatched Google account, staff and
+  suspended accounts left alone, a confirmed email never signing in, account
+  creation for both methods (password only for email), and every conflict.
+  `identity/verified-identity.spec.ts`: Firebase claims to identities
+  (unverified email, missing ids, unsupported providers) and username
+  suggestions. `share/web-fallback.controller.spec.ts`: the Firebase web
+  settings and CSP only when configured. `account-password.service.spec.ts`:
+  the sign-in methods; a first password confirmed with the linked Google
+  account only (not another one, a confirmed email, or an expired sign-in -
+  a 400 there), keeping every device; a change with the current password or
+  Google, signing out the other devices (all of them for a token without a
+  session); wrong, missing and unchanged passwords; staff left to the console.
+- Web `auth/AuthDialog.test.tsx`: log in; Continue with Google into an
+  account or on to a username (taken before and after sending; checked
+  before sending; cancelled); a closed popup changes nothing; without
+  Firebase it sends people to the app. `App.test.tsx`: the button appears
+  only with the page's Firebase settings.
 - Web (`apps/web`, Vitest) `session.test.ts`: the access token in memory
   only, one renewal for callers asking at once, early renewal, sign-out on
   a refused renewal, the session kept through a dropped connection, logout
@@ -144,5 +301,13 @@ everything downstream keeps working.
 - Mobile `api_client_test.dart` (renewal, single-flight, offline, timeout,
   validation messages), `session_store_test.dart` (fresh-install wipe),
   `router_test.dart` (redirects), `widget_test.dart` (saved session opens
-  discovery; ended session returns to login), `logout_confirmation_test.dart`
-  (both platforms).
+  discovery; ended session returns to login; the sign-in screen, the email
+  form's checks, a whole Google sign-up landing on discovery),
+  `sign_up_flow_test.dart` (both methods step by step: the link found by
+  polling, resend after the wait, a username taken before or after the
+  link, an email in use, a different email, the username lookup),
+  `password_screen_test.dart` (the settings row for Google, password and
+  staff accounts; adding with Google, the two not matching, backing out of
+  Google; changing with the current one, a refusal, resetting with Google,
+  no Google way back without Google),
+  `logout_confirmation_test.dart` (both platforms).

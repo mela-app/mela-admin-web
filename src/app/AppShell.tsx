@@ -1,5 +1,6 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
 import {
+  Database,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -40,6 +41,7 @@ type NavTarget =
   | '/phrases'
   | '/audit'
   | '/messages'
+  | '/data'
 
 interface NavItem {
   to: NavTarget
@@ -48,6 +50,7 @@ interface NavItem {
   count?: number
   // Hidden from staff without it (the page itself refuses them too).
   needs?: AdminPermission
+  superAdminOnly?: boolean
 }
 
 export function AppShell() {
@@ -151,9 +154,18 @@ function Sidebar() {
         { to: '/messages', label: 'Private messages', icon: MessagesSquare, needs: 'VIEW_PRIVATE_MESSAGES' },
       ],
     },
+    {
+      label: 'System',
+      items: [{ to: '/data', label: 'Data', icon: Database, superAdminOnly: true }],
+    },
   ]
   const visible = sections
-    .map((section) => ({ ...section, items: section.items.filter((item) => !item.needs || auth.can(item.needs)) }))
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => (!item.needs || auth.can(item.needs)) && (!item.superAdminOnly || auth.isSuperAdmin),
+      ),
+    }))
     .filter((section) => section.items.length > 0)
 
   return (

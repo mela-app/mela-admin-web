@@ -8,7 +8,10 @@
 ## What it does
 
 A single `StorageProvider` interface (`createUploadUrl(key, contentType)` -
-`{uploadUrl, publicUrl}`, and `publicUrl(key)`) so the object storage vendor is a config choice,
+`{uploadUrl, publicUrl}`, `publicUrl(key)`, and `deleteUrls(urls)` - deletes
+the objects behind this bucket's public URLs one by one, ten at a time,
+skipping other addresses and logging failures rather than throwing; used
+when the console erases chat or removes data) so the object storage vendor is a config choice,
 not a code change - the same pattern as `common/video-provider` (plan
 §4.1). `S3StorageProvider` is the only implementation today: it works
 against **any S3-compatible API** (`@aws-sdk/client-s3` +

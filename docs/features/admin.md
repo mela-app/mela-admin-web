@@ -27,7 +27,7 @@ and it can be changed later from their user page (`PATCH
 
 | Area | View | Manage |
 |---|---|---|
-| Lives and chat | `VIEW_LIVES`: the lives list, a live's details and chat log, Live chat by day | `MANAGE_LIVES`: lock, unlock, delete chat messages |
+| Lives and chat | `VIEW_LIVES`: the lives list, a live's details and chat log, Live chat by day | `MANAGE_LIVES`: lock, unlock, delete chat messages for good (one or many) |
 | Users | `VIEW_USERS`: accounts, details, devices | `MANAGE_USERS`: suspend, reinstate, sign out everywhere, fix a profile (app users only) |
 | Alerts | `VIEW_ALERTS`: sent alerts | `SEND_ALERTS`: alert one live; `SEND_GLOBAL_ALERTS`: also alert everyone |
 | Banned phrases | `VIEW_PHRASES`: the list, testing a message | `MANAGE_PHRASES`: add, change, remove |
@@ -117,7 +117,9 @@ with that email (audited as `user.role_changed`), and it writes
 ### Audit trail
 
 `AuditLog` (`audit_logs`) is append-only: there is no update or delete
-endpoint. `AuditEventsListener` turns domain events into entries; the
+endpoint - only a super admin's **Data** page can remove it, all or what's
+older than some days, and that removal is then recorded as the first entry
+of what's left. `AuditEventsListener` turns domain events into entries; the
 console services emit the same events rather than writing entries
 directly. Each entry stores:
 
@@ -180,6 +182,53 @@ audited - deleting a message is, as anywhere. It needs `VIEW_LIVES`; a
 live's own **Chat log** tab is unchanged. The day range rules are shared
 with private messages (`admin/day-range.ts`).
 
+**Deleting chat from the console erases it** (client request, 2026-10):
+the row is deleted from the database, its photo from storage, and it
+disappears from the console and from everyone's chat in the live
+(`ChatService.eraseAsAdmin`, the same `chat:deleted` as a host's delete; a
+pinned one is unpinned too). Only the audit entry keeps who sent it and an
+excerpt (`metadata.erased`). A host's or moderator's delete in the app still
+only hides the message, so the console keeps showing it, struck through,
+under "Deleted by a host or moderator" - where staff can erase it too. Staff
+with `MANAGE_LIVES` get a checkbox on every message, in Live chat and a
+live's Chat log: pick some, or **Pick all shown**, then **Delete N
+messages** - one confirmation, then `POST /admin/chat/messages/delete`
+(500 at a time; the console splits a bigger pick).
+
+### Data (super admins)
+
+The **Data** page (`/data`, under System; client request, 2026-10) is for
+super admins only - it's not a permission a moderator can be given. It lists
+what is stored by area (people, lives, messages and notifications, the
+console), each kind with its row count and tables (`GET /admin/data`, from
+`AdminDataService`'s list of data sets), and removes one kind at a time:
+all of it, or - for chat, lives, private messages, notifications, alerts
+and the audit log - only what's older than some days, and for signed-in
+devices only those unused for some days. **Reset everything** removes all
+but the signed-in super admin's own account (other staff included); it can
+keep app updates, banned phrases and the audit log, and needs `RESET` typed
+as well.
+
+- Every removal asks for the admin's password again (`400 WRONG_PASSWORD`;
+  10 tries a minute), and is audited afterwards - `data.cleared` (target
+  `DATA`, with how many rows went) or `data.reset` - so even clearing the
+  audit log leaves that entry.
+- A running live keeps everything that belongs to it: its chat, stage
+  guests and requests, moderators, mutes, recording permissions and room
+  bans. Removing app users keeps staff and anyone hosting a live right now.
+  A reset waits until no live runs (`409 LIVES_RUNNING`, lock them first).
+- Removing a live takes everything in it with it (the database cascades);
+  removing app users removes their lives first, then them.
+- Files go too: chat photos with their messages or lives, and profile
+  pictures with their accounts (`StorageProvider.deleteUrls`, best effort).
+- Signing everyone out (all signed-in devices) and a reset close everyone
+  else's realtime connection at once (`data.cleared` with `signedOut`,
+  `data.reset`); the admin's own session stays.
+- A reset empties every table but `users` (only the admin's row stays),
+  their sessions, settings and sign-in links, `_prisma_migrations` and what
+  it was asked to keep (`TRUNCATE`, in one transaction) - so a table added
+  later is covered without changing it.
+
 ### App updates
 
 The **App updates** page (`/app-updates`, under Manage) publishes each new
@@ -215,9 +264,13 @@ GET    /admin/messages/conversations?from&to[&q&userId&page&pageSize]      [VIEW
 GET    /admin/messages/conversations/:id?from&to[&cursor&limit]  (audited)  [VIEW_PRIVATE_MESSAGES]
 GET    /admin/chat/hosts?from&to[&q&page&pageSize]                         [VIEW_LIVES]
 GET    /admin/chat/hosts/:hostId?from&to[&q&status&cursor&limit]           [VIEW_LIVES]
+POST   /admin/chat/messages/delete ({messageIds: 1-500})                   [MANAGE_LIVES]
 GET    /admin/app-releases[?page&pageSize]                                 [VIEW_APP_RELEASES]
 POST   /admin/app-releases ({platform, version, build, notes, downloadUrl, required?})  [MANAGE_APP_RELEASES]
 PATCH  /admin/app-releases/:id ({notes?, downloadUrl?, required?}) | DELETE /admin/app-releases/:id  [MANAGE_APP_RELEASES]
+GET    /admin/data                                                         (super admin)
+POST   /admin/data/clear ({dataSet, olderThanDays?, password})             (super admin)
+POST   /admin/data/reset ({password, keep?: [appUpdates|bannedPhrases|auditLog]})  (super admin)
 ```
 
 Every admin controller except sign-in/refresh/sign-out is throttled at
@@ -333,7 +386,17 @@ able to call it.
   - `admin/content/admin-content.service.spec.ts`: alert targets, global
     alerts by permission, phrases.
   - `admin/chat/admin-chat.service.spec.ts`: hosts with chat that day,
-    added up across their lives; one host's chat by live, filters, paging.
+    added up across their lives; one host's chat by live, filters, paging;
+    deleting several messages at once.
+  - `admin/data/admin-data.service.spec.ts`: the counts, the password asked
+    again, only older chat (running lives kept, photos deleted), kinds only
+    removable all at once, signing everyone out but this console, app users
+    after their lives, empty conversations, the phrase cache, room bans; a
+    reset's `TRUNCATE` sparing the admin's account and what was kept, and
+    waiting for running lives.
+  - `chat/chat.service.spec.ts` (`eraseAsAdmin`): rows gone, the room told,
+    a pin taken down, photos deleted. `common/storage/s3-storage.service.spec.ts`:
+    deleting this bucket's files only, failures logged.
   - `admin/releases/admin-releases.service.spec.ts`: see
     docs/features/app-updates.md.
   - `audit/audit.service.spec.ts`: filters, CSV escaping.
@@ -356,4 +419,8 @@ able to call it.
   levels and the picker), `lib/format.test.ts`, `app/search.test.ts` (URL
   filters, safe redirects), `features/account/PasswordForm.test.tsx`,
   `components/ui/ui.test.tsx`, `features/chat/sections.test.ts` (a host's
-  day split by live), `features/releases/release-form.test.ts`.
+  day split by live), `features/releases/release-form.test.ts`,
+  `features/data/DataPage.test.tsx` (counts by area, removing older chat,
+  a refused password, the reset's confirmations) and
+  `features/streams/ChatLog.test.tsx` (picking messages and deleting them
+  at once; none for read-only staff).

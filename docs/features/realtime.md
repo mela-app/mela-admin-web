@@ -58,9 +58,10 @@ One Socket.IO gateway (`RealtimeGateway`), and one app-wide connection per signe
 | `message:new` | `{message, sender, recipient}` | both people's `user:{id}` - a direct message between friends (docs/features/messages.md); the sender's other devices get it too |
 | `message:read` | `{readerId, partnerId, readAt}` | both people's `user:{id}` - the partner's app shows Seen, the reader's other devices clear the conversation |
 | `message:unread_count` | `{count}` | the `user:{id}` whose unread total changed - the Inbox badge (a total, not a delta) |
+| `message:deleted` | `{messageId, senderId, recipientId}` | both people's `user:{id}` - the safety team removed a reported private message (docs/features/messages.md) |
 | `app:update` | `{platform}` | every connected socket - an app update for that platform was published, edited or withdrawn; the app asks `GET /v1/app/update` again (docs/features/app-updates.md) |
 
-The `user.suspended` and `user.sessions_revoked` events force-disconnect that user's sockets through `user:{id}`; their sessions were ended too, so the reconnect is refused. `RealtimeGateway.connectedCount(streamId?)` tells the console how many devices an alert would reach.
+The `user.suspended` and `user.sessions_revoked` events force-disconnect that user's sockets through `user:{id}`; their sessions were ended too, so the reconnect is refused. `account.deleted` does the same for a deleted account (docs/features/auth.md). `RealtimeGateway.connectedCount(streamId?)` tells the console how many devices an alert would reach.
 
 **Presence** (`LivePresenceService`, Redis; Lua scripts, so every change is atomic and idempotent per socket): `stream:{id}:viewer_sockets` (hash socketId → userId) and `stream:{id}:viewers` (hash userId → open sockets), so counts are **unique users** - two devices of one viewer count once; `stream:{id}:peak_viewers`; `stream:{id}:host_alive` (TTL `HOST_HEARTBEAT_TTL_SECONDS` = 90 s, or `PAUSED_HOST_TTL_SECONDS` = 10 min while paused - one Lua script picks it); `stream:{id}:host_away`; `stream:{id}:paused`. Ending a live persists `peakViewerCount` and deletes them all. Viewer keys are reset on boot, since socket ids from before a restart are dead (this assumes a single instance - see "How to modify").
 

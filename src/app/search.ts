@@ -4,6 +4,7 @@ import type {
   AuditCategory,
   BannedPhraseSeverity,
   PlatformRole,
+  ReportTargetType,
   StreamStatus,
   UserStatus,
 } from '../lib/types'
@@ -126,6 +127,25 @@ export function liveChatSearch(search: Record<string, unknown>): LiveChatSearch 
 
 export function appUpdatesSearch(search: Record<string, unknown>): PageSearch {
   return pageSearch(search)
+}
+
+const REPORT_TYPES: readonly ReportTargetType[] = ['LIVE', 'CHAT_MESSAGE', 'USER', 'DIRECT_MESSAGE']
+
+export interface ReportsSearch extends PageSearch {
+  // None means the open ones.
+  status?: 'ACTIONED' | 'DISMISSED'
+  type?: ReportTargetType
+  // The case open beside the list.
+  report?: string
+}
+
+export function reportsSearch(search: Record<string, unknown>): ReportsSearch {
+  return {
+    status: oneOf(search.status, ['ACTIONED', 'DISMISSED'] as const),
+    type: oneOf(search.type, REPORT_TYPES),
+    report: text(search.report, 64),
+    ...pageSearch(search),
+  }
 }
 
 const CATEGORIES: readonly AuditCategory[] = [

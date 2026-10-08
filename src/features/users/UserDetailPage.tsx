@@ -1,5 +1,5 @@
 import { getRouteApi, Link } from '@tanstack/react-router'
-import { Ban, LogOut, MessageSquareText, MessagesSquare, Pencil, Radio, ShieldCheck, UserCheck } from 'lucide-react'
+import { Ban, LogOut, MessageSquareText, MessagesSquare, Pencil, Radio, ShieldCheck, Trash2, UserCheck } from 'lucide-react'
 import { useState } from 'react'
 import type { UserTab } from '../../app/search'
 import { AccessSummary } from '../../components/AccessSummary'
@@ -18,11 +18,11 @@ import type { UserDetail } from '../../lib/types'
 import { ScopedAuditTable } from '../audit/AuditTable'
 import { HostStreamsTable } from '../streams/StreamsTable'
 import { ChangeRoleDialog, EditAccessDialog, EditProfileDialog } from './ProfileDialogs'
-import { ReinstateUserDialog, SignOutEverywhereDialog, SuspendUserDialog } from './UserActionDialogs'
+import { DeleteUserDialog, ReinstateUserDialog, SignOutEverywhereDialog, SuspendUserDialog } from './UserActionDialogs'
 
 const routeApi = getRouteApi('/_app/users/$userId')
 
-type DialogName = 'suspend' | 'reinstate' | 'sign-out' | 'edit' | 'role' | 'access'
+type DialogName = 'suspend' | 'reinstate' | 'sign-out' | 'edit' | 'role' | 'access' | 'delete'
 
 export function UserDetailPage() {
   const { userId } = routeApi.useParams()
@@ -142,6 +142,12 @@ function UserView({ user }: { user: UserDetail }) {
                 )}
               </>
             )}
+            {/* Staff are made app users first; it's for someone who asked without the app. */}
+            {!self && !staffTarget && auth.isSuperAdmin && (
+              <Button variant="danger-ghost" icon={<Trash2 />} onClick={() => setDialog('delete')}>
+                Delete account
+              </Button>
+            )}
           </>
         }
       />
@@ -237,6 +243,11 @@ function UserView({ user }: { user: UserDetail }) {
       <SuspendUserDialog user={dialog === 'suspend' ? user : null} onClose={close} />
       <ReinstateUserDialog user={dialog === 'reinstate' ? user : null} onClose={close} />
       <SignOutEverywhereDialog user={dialog === 'sign-out' ? user : null} onClose={close} />
+      <DeleteUserDialog
+        user={dialog === 'delete' ? user : null}
+        onClose={close}
+        onDeleted={() => void navigate({ to: '/users', search: {} })}
+      />
       <EditProfileDialog user={user} open={dialog === 'edit'} onClose={close} />
       <ChangeRoleDialog user={user} open={dialog === 'role'} onClose={close} />
       <EditAccessDialog user={user} open={dialog === 'access'} onClose={close} />

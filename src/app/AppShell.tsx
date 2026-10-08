@@ -1,6 +1,7 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
 import {
   Database,
+  Flag,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -37,6 +38,7 @@ type NavTarget =
   | '/users'
   | '/staff'
   | '/app-updates'
+  | '/reports'
   | '/alerts'
   | '/phrases'
   | '/audit'
@@ -48,6 +50,8 @@ interface NavItem {
   label: string
   icon: LucideIcon
   count?: number
+  // The count in red: something waits that shouldn't.
+  urgent?: boolean
   // Hidden from staff without it (the page itself refuses them too).
   needs?: AdminPermission
   superAdminOnly?: boolean
@@ -122,6 +126,7 @@ function Sidebar() {
   const auth = useAuth()
   const overview = useOverview()
   const liveCount = overview.data?.live.streams
+  const reports = overview.data?.reports
 
   const sections: Array<{ label: string; items: NavItem[] }> = [
     {
@@ -143,6 +148,14 @@ function Sidebar() {
     {
       label: 'Safety',
       items: [
+        {
+          to: '/reports',
+          label: 'Reports',
+          icon: Flag,
+          count: reports?.open,
+          urgent: (reports?.urgent ?? 0) > 0,
+          needs: 'VIEW_REPORTS',
+        },
         { to: '/alerts', label: 'Alerts', icon: Megaphone, needs: 'VIEW_ALERTS' },
         { to: '/phrases', label: 'Banned phrases', icon: ShieldBan, needs: 'VIEW_PHRASES' },
       ],
@@ -211,7 +224,12 @@ function NavLink({ item }: { item: NavItem }) {
       />
       <span className="flex-1 truncate">{item.label}</span>
       {item.count !== undefined && item.count > 0 && (
-        <span className="rounded-full bg-zinc-200/70 px-1.5 py-px text-[11px] font-semibold text-zinc-700 tabular-nums">
+        <span
+          className={cn(
+            'rounded-full px-1.5 py-px text-[11px] font-semibold tabular-nums',
+            item.urgent ? 'bg-red-600 text-white' : 'bg-zinc-200/70 text-zinc-700',
+          )}
+        >
           {formatCompact(item.count)}
         </span>
       )}

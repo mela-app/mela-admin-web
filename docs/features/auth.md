@@ -93,6 +93,38 @@ number is the next way to prove it (below).
   its own session ending. **Staff** passwords follow the console's stricter
   rules, so they change there only (`403 STAFF_ACCOUNT`; the app shows
   "Change it in the admin console").
+- **Deleting an account** (2026-10; Apple's guideline 5.1.1(v) and Google
+  Play's account deletion policy want it in the app for any app with
+  sign-up): Settings > Account > Delete account. `POST
+  /v1/me/account/delete {currentPassword?, idToken?}` (5/min,
+  `AccountDeletionService` in `src/users`), proven like a password change -
+  `proveAccount` in `auth/account-proof.ts` is shared by both: the current
+  password, or a fresh sign-in to the account's own linked Google account
+  (the only way for an account made with Google, and the way back for a
+  forgotten password), with the same refusals. Staff are refused (`403
+  STAFF_ACCOUNT`). In order: any live they're running ends
+  (`StreamsService.end`); then in one transaction the audit trail is
+  anonymised - their own entries' actor becomes "Deleted account" without
+  IP address or device, entries about them get the same label - their
+  lives are deleted, then the user row, and the database cascades the rest
+  (sessions and push tokens, Google sign-in link, follows, blocks, mutes,
+  chat messages, private messages and conversations, notifications,
+  settings, stage and moderator rows). Report cases stay, with their
+  snapshot and the account's id set to null (docs/features/moderation.md).
+  Then the avatar and the chat photos of their lives are deleted from
+  storage (best effort). `account.deleted` closes their sockets
+  (`RealtimeGateway.handleAccountDeleted`) and is audited - `account.deleted`
+  (by the user, labelled "Deleted account"), or `user.deleted` with the
+  reason when a super admin deleted it from the console (`POST
+  /v1/admin/users/:id/delete {reason}`, for someone who asked without the
+  app; staff are made app users first, `409`). The username is free again
+  afterwards.
+- **Deleting without the app**: `GET /delete-account` (no version prefix,
+  `AccountDeletionPageController` in `src/share`) is a static page - the
+  steps in the app, what's deleted and what's kept, and, with `SUPPORT_EMAIL`
+  set, an email link to ask instead (answered within 7 days, then done from
+  the console). Google Play's Data safety form asks for this address:
+  `https://<the API's domain>/delete-account`.
 - **The old sign-up** (`POST /v1/auth/signup`, never verified) answers
   `400 APP_UPDATE_REQUIRED` ("Update Mela to sign up") for apps from before
   this; the web player's old sign-up route is gone.
@@ -227,6 +259,16 @@ its `REVERSED_CLIENT_ID` as a URL scheme in `Info.plist`.
   (`IdentityVerifier.signInWithGoogle()`, `finish()` once the API
   answered); changing asks for the current one too, or Google after
   "Forgot it?". A tapped security notice opens it.
+- **Delete account** (`features/auth/account/delete_account_screen.dart`,
+  route `/settings/delete-account`, shut while hosting like the rest):
+  Settings > Account > Delete account, in red. The screen says it can't be
+  undone, what's deleted and what's kept, then asks for the password - or
+  "Confirm with Google and delete" for an account made with Google, or after
+  "Forgot it?" - and once more in a dialog (`confirmAction`: a native alert
+  on iPhone). Done, `SessionController.deleteAccount` forgets the session on
+  this device without logging out (the server already ended every
+  session), the router goes to login, and "Your account was deleted."
+  shows. A staff account is told it's deleted in the console.
 
 ## How to add to this feature
 
@@ -289,6 +331,13 @@ everything downstream keeps working.
   a 400 there), keeping every device; a change with the current password or
   Google, signing out the other devices (all of them for a token without a
   session); wrong, missing and unchanged passwords; staff left to the console.
+  `users/account-deletion.service.spec.ts`: deleting with the password
+  (its live ended, the audit trail anonymised, its lives and files gone, the
+  event), nothing without the right password, Google for an account made
+  with Google, staff left to the console, a super admin's delete with a
+  reason, never their own or a staff account.
+  `share/account-deletion-page.controller.spec.ts`: the page's steps and
+  lists, and the support email link only when set (escaped).
 - Web `auth/AuthDialog.test.tsx`: log in; Continue with Google into an
   account or on to a username (taken before and after sending; checked
   before sending; cancelled); a closed popup changes nothing; without
@@ -310,4 +359,9 @@ everything downstream keeps working.
   staff accounts; adding with Google, the two not matching, backing out of
   Google; changing with the current one, a refusal, resetting with Google,
   no Google way back without Google),
+  `delete_account_test.dart` (what goes and stays shown first; the password
+  and a second confirmation, then signed out with the session forgotten;
+  nothing without the password or after Cancel; Google for an account made
+  with it, and after "Forgot it?"; a wrong password keeps them signed in;
+  staff told to use the console),
   `logout_confirmation_test.dart` (both platforms).

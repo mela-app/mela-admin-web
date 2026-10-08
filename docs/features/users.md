@@ -44,6 +44,10 @@ on) hides their lives from your discovery/feeds/search and theirs from
 yours (`SocialService.blockedEitherWayUserIds`, checked in
 `StreamsService.listLive()` and `SocialService.search()`).
 
+**Deleting an account** (`AccountDeletionService`, `POST /v1/me/account/delete`,
+2026-10) lives here too, since it removes the user and everything hanging
+off them - documented in docs/features/auth.md with how it's proven.
+
 ## How to add to this feature
 
 New public-profile fields: add the column via its own migration, then add

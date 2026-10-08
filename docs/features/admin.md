@@ -8,8 +8,8 @@
 ## What it does
 
 An internal web console for platform staff: watch and lock lives, read and
-moderate a live's chat - live by live, or a day at a time by host - send
-in-app alerts, manage accounts (suspend,
+moderate a live's chat - live by live, or a day at a time by host - decide
+on what users reported, send in-app alerts, manage accounts (suspend,
 reinstate, sign out everywhere, fix a profile, change a platform role),
 edit the banned-phrase list, create staff accounts, publish app updates
 (docs/features/app-updates.md),
@@ -29,6 +29,7 @@ and it can be changed later from their user page (`PATCH
 |---|---|---|
 | Lives and chat | `VIEW_LIVES`: the lives list, a live's details and chat log, Live chat by day | `MANAGE_LIVES`: lock, unlock, delete chat messages for good (one or many) |
 | Users | `VIEW_USERS`: accounts, details, devices | `MANAGE_USERS`: suspend, reinstate, sign out everywhere, fix a profile (app users only) |
+| Reports | `VIEW_REPORTS`: the Reports page - what was reported and by whom, reported private messages included | `MANAGE_REPORTS`: decide (everyone who reported it is told), remove a reported private message |
 | Alerts | `VIEW_ALERTS`: sent alerts | `SEND_ALERTS`: alert one live; `SEND_GLOBAL_ALERTS`: also alert everyone |
 | Banned phrases | `VIEW_PHRASES`: the list, testing a message | `MANAGE_PHRASES`: add, change, remove |
 | Audit log | `VIEW_AUDIT_LOG`: read and export | |
@@ -145,6 +146,47 @@ returns the same filters as CSV, capped at 10,000 rows, with a UTF-8 BOM
 for Excel and formula-neutralised cells; the export itself is audited
 (`admin.audit_exported`).
 
+### Reports (docs/features/moderation.md)
+
+The **Reports** page (`/reports`, first under Safety; 2026-10) is where
+what people report in the app is decided. The sidebar shows how many cases
+are open - in red while an urgent one waits - and the overview has an "Open
+reports" figure (`overview.reports {open, urgent}`, null without
+`VIEW_REPORTS`). One case per reported thing, however many reported it:
+Open (urgent first, then the latest report), Action taken or No violation
+(latest decision first), and a filter by what was reported (lives, chat
+messages, accounts, private messages). A row shows what it is ("Chat message
+from @ana"), why - each reason with how many chose it - how many reports,
+and when. The case opens beside the list (`?report=`, so a link can point
+at one - an audit entry about a report does):
+
+- **What was reported**, from the snapshot taken at the first report - so
+  it's there even after the message, live or account is gone (it says so).
+  A private message shows here because it was reported; reading it needs
+  `VIEW_REPORTS`, not `VIEW_PRIVATE_MESSAGES`.
+- **Whose it is**, with their status and how many other things of theirs
+  were reported.
+- **Every report**: the reason, the reporter's own words, who and when.
+- **Act on it**: the usual tools, each with its own permission - delete
+  the chat message for good (`MANAGE_LIVES`), remove the private message
+  from both people's conversation (`MANAGE_REPORTS`), lock the live while
+  it runs (`MANAGE_LIVES`), suspend the account (`MANAGE_USERS`), open the
+  live.
+- **Decide** (`MANAGE_REPORTS`): a note for the team (optional; reporters
+  never see it), then **No violation** or **Action taken**. Each reporter
+  gets a notification with the outcome. A decided case shows who decided,
+  when, and the note.
+
+The page's callout reminds staff that the app promises a review within 24
+hours, which Apple requires.
+
+**Deleting an account** (super admins; 2026-10): an app user's page has
+**Delete account** - for someone who asked to be deleted without the app
+(the `/delete-account` page offers email, docs/features/auth.md). It asks
+for a reason (kept in the audit log as `user.deleted`), deletes exactly as
+the app's own Delete account does, and returns to the users list. Staff
+accounts are made app users first.
+
 ### Private messages (docs/features/messages.md)
 
 The **Private messages** page (`/messages`, under Records) shows direct
@@ -242,7 +284,7 @@ Each route needs the permission in brackets (a super admin has them all).
 POST   /admin/auth/sign-in | /admin/auth/refresh | /admin/auth/sign-out
 GET/PATCH /admin/me          POST /admin/me/password | /admin/me/email
 GET    /admin/me/sessions    DELETE /admin/me/sessions/:sessionId
-GET    /admin/overview                         (any staff; counts + 14-day series, UTC)
+GET    /admin/overview                         (any staff; counts + 14-day series, UTC; open reports with VIEW_REPORTS)
 GET    /admin/streams[?q&status&hostId&from&to&sort&order&page&pageSize]    [VIEW_LIVES]
 GET    /admin/streams/:id | /admin/streams/:id/chat[?q&status&cursor&limit]  [VIEW_LIVES]
 DELETE /admin/streams/:id/chat/:messageId                                  [MANAGE_LIVES]
@@ -252,6 +294,7 @@ POST   /admin/users/:id/suspend ({reason}) | /reinstate | /sessions/revoke  [MAN
 PATCH  /admin/users/:id/profile ({username?, displayName?, bio?, removeAvatar?, reason})  [MANAGE_USERS]
 PATCH  /admin/users/:id/role ({platformRole, permissions?})                (super admin)
 PATCH  /admin/users/:id/permissions ({permissions})                        (super admin)
+POST   /admin/users/:id/delete ({reason})                                  (super admin; app users only)
 GET    /admin/staff                            (any staff)
 POST   /admin/staff ({email, displayName, platformRole, permissions?})     (super admin; returns a one-time password)
 GET    /admin/alerts                                                       [VIEW_ALERTS]
@@ -265,6 +308,9 @@ GET    /admin/messages/conversations/:id?from&to[&cursor&limit]  (audited)  [VIE
 GET    /admin/chat/hosts?from&to[&q&page&pageSize]                         [VIEW_LIVES]
 GET    /admin/chat/hosts/:hostId?from&to[&q&status&cursor&limit]           [VIEW_LIVES]
 POST   /admin/chat/messages/delete ({messageIds: 1-500})                   [MANAGE_LIVES]
+GET    /admin/reports[?status=OPEN|ACTIONED|DISMISSED&type&page&pageSize] | /admin/reports/:id  [VIEW_REPORTS]
+POST   /admin/reports/:id/resolve ({outcome: ACTIONED|DISMISSED, note?})   [MANAGE_REPORTS]
+POST   /admin/reports/:id/remove-message   (a reported private message)    [MANAGE_REPORTS]
 GET    /admin/app-releases[?page&pageSize]                                 [VIEW_APP_RELEASES]
 POST   /admin/app-releases ({platform, version, build, notes, downloadUrl, required?})  [MANAGE_APP_RELEASES]
 PATCH  /admin/app-releases/:id ({notes?, downloadUrl?, required?}) | DELETE /admin/app-releases/:id  [MANAGE_APP_RELEASES]
@@ -399,6 +445,8 @@ able to call it.
     deleting this bucket's files only, failures logged.
   - `admin/releases/admin-releases.service.spec.ts`: see
     docs/features/app-updates.md.
+  - `admin/reports/admin-reports.service.spec.ts`: see
+    docs/features/moderation.md; deleting an account, docs/features/auth.md.
   - `audit/audit.service.spec.ts`: filters, CSV escaping.
   - `audit/audit-events.listener.spec.ts`: every handler.
   - `auth/jwt-auth.guard.spec.ts`: a revoked session.
@@ -423,4 +471,7 @@ able to call it.
   `features/data/DataPage.test.tsx` (counts by area, removing older chat,
   a refused password, the reset's confirmations) and
   `features/streams/ChatLog.test.tsx` (picking messages and deleting them
-  at once; none for read-only staff).
+  at once; none for read-only staff), `features/reports/ReportCase.test.tsx`
+  (what was reported and by whom; deciding with a note, or as no violation;
+  read-only staff; deleting the chat message, removing a private message;
+  something gone since; a decided case).

@@ -1,6 +1,6 @@
 import { getRouteApi } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil, Send, Smartphone, Trash } from 'lucide-react'
+import { ExternalLink, Pencil, Send, Smartphone, Store, Trash } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { PersonLink } from '../../components/PersonLink'
 import { Badge } from '../../components/ui/Badge'
@@ -17,15 +17,16 @@ import { APP_PLATFORM_LABELS } from '../../lib/labels'
 import { actions, useAdminMutation, useAppReleases } from '../../lib/queries'
 import { DEFAULT_PAGE_SIZE } from '../../lib/search'
 import type { AppPlatform, AppPlatformStatus, AppRelease } from '../../lib/types'
-import { isDownloadLink, noteLines, releaseProblem } from './release-form'
+import { noteLines, releaseProblem, whereFrom } from './release-form'
 
 const routeApi = getRouteApi('/_app/app-updates')
 const PLATFORMS: AppPlatform[] = ['ANDROID', 'IOS']
 
 /**
- * Telling people a new version of the app is out. Phones on an older build
- * ask them to update, showing what's new; below a required update the app
- * can't be used until they do.
+ * Telling people a new version of the app is out. Phones on an older version
+ * ask them to update, showing what's new - and get it from Google Play (in
+ * the app itself) or the App Store; below a required update the app can't be
+ * used until they do.
  */
 export function AppUpdatesPage() {
   const auth = useAuth()
@@ -46,7 +47,7 @@ export function AppUpdatesPage() {
     <>
       <PageHeader
         title="App updates"
-        description="Tell people a new version of the app is out. Phones on an older build ask them to update and show what's new; a required update must be installed before the app can be used again."
+        description="Tell people a new version of the app is out. Phones on an older version ask them to update and show what's new; on Android it downloads from Google Play inside the app. A required update must be installed before the app can be used again."
       />
       <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2">
@@ -116,16 +117,14 @@ function PlatformCard({ platform, status }: { platform: AppPlatform; status: App
             </div>
           ) : latest ? (
             <>
-              <p className="mt-0.5 text-lg font-semibold tracking-tight text-zinc-900">
-                {latest.version} <span className="text-sm font-normal text-zinc-500">build {latest.build}</span>
-              </p>
+              <p className="mt-0.5 text-lg font-semibold tracking-tight text-zinc-900">{latest.version}</p>
               <p className="text-xs text-zinc-500">
                 Published <RelativeTime value={latest.createdAt} />
               </p>
               <p className="mt-2 text-[13px] text-zinc-700">
                 {status.required
-                  ? `Builds below ${status.required.build} (${status.required.version}) must update.`
-                  : 'Nothing is required: older builds are asked, and can update later.'}
+                  ? `Versions below ${status.required.version} must update.`
+                  : 'Nothing is required: older versions are asked, and can update later.'}
               </p>
             </>
           ) : (
@@ -139,22 +138,17 @@ function PlatformCard({ platform, status }: { platform: AppPlatform; status: App
 
 function Publisher({ platforms }: { platforms: Record<AppPlatform, AppPlatformStatus> }) {
   const [platform, setPlatform] = useState<AppPlatform>('ANDROID')
-  const [version, setVersion] = useState('')
-  const [build, setBuild] = useState('')
+  // Null until edited: the next patch version is suggested.
+  const [version, setVersion] = useState<string | null>(null)
   const [notes, setNotes] = useState('')
-  // Null until edited: the platform's last link is suggested.
-  const [link, setLink] = useState<string | null>(null)
   const [required, setRequired] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const status = platforms[platform]
-  const draft = {
-    version: version.trim(),
-    build: Number(build.trim()),
-    notes: notes.trim(),
-    downloadUrl: (link ?? status.suggestedDownloadUrl ?? '').trim(),
-  }
-  const problem = releaseProblem(draft, status.latest)
-  const started = Boolean(version || build || notes)
+  const draft = { version: (version ?? status.suggestedVersion).trim(), notes: notes.trim() }
+  const problem = status.storeLink
+    ? releaseProblem(draft, status.latest)
+    : `There's no ${APP_PLATFORM_LABELS[platform]} store listing yet - set IOS_INSTALL_URL on the server first.`
+  const started = Boolean(version !== null || notes)
   const publish = useAdminMutation(() => actions.publishRelease({ platform, ...draft, required }), {
     toastErrors: false,
     success: (release) => `${releaseName(release)} published. Phones that are open are told at once.`,
@@ -162,10 +156,8 @@ function Publisher({ platforms }: { platforms: Record<AppPlatform, AppPlatformSt
 
   async function deliver() {
     await publish.mutateAsync(undefined)
-    setVersion('')
-    setBuild('')
+    setVersion(null)
     setNotes('')
-    setLink(null)
     setRequired(false)
   }
 
@@ -177,7 +169,7 @@ function Publisher({ platforms }: { platforms: Record<AppPlatform, AppPlatformSt
   return (
     <Card
       title="Publish an update"
-      description="Publish once the new build can be downloaded from the link - phones open it as soon as people tap Update."
+      description="Publish once the new version is live in the store - phones are told at once, and get it from there."
     >
       <form onSubmit={submit} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-5">
@@ -188,28 +180,25 @@ function Publisher({ platforms }: { platforms: Record<AppPlatform, AppPlatformSt
               value={platform}
               onChange={(next) => {
                 setPlatform(next)
-                setLink(null)
+                setVersion(null)
               }}
               options={PLATFORMS.map((value) => ({ value, label: APP_PLATFORM_LABELS[value] }))}
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Version" hint={status.latest ? `Now ${status.latest.version}` : 'As people see it'} required>
-              <Input value={version} onChange={(event) => setVersion(event.target.value)} placeholder="1.2.0" maxLength={14} />
-            </Field>
             <Field
-              label="Build number"
-              hint={`The number after + in pubspec.yaml${status.latest ? ` - higher than ${status.latest.build}` : ''}`}
+              label="Version"
+              hint={`As in pubspec.yaml and the store${status.latest ? ` - newer than ${status.latest.version}` : ''}`}
               required
             >
               <Input
-                value={build}
-                onChange={(event) => setBuild(event.target.value)}
-                inputMode="numeric"
-                placeholder={status.latest ? String(status.latest.build + 1) : '1'}
-                maxLength={10}
+                value={version ?? status.suggestedVersion}
+                onChange={(event) => setVersion(event.target.value)}
+                placeholder="1.2.0"
+                maxLength={14}
               />
             </Field>
+            <StoreField platform={platform} link={status.storeLink} />
           </div>
           <Field label="What's new" hint={`One change per line - each shows as a point in the app. ${draft.notes.length}/1000`} required>
             <Textarea
@@ -220,18 +209,9 @@ function Publisher({ platforms }: { platforms: Record<AppPlatform, AppPlatformSt
               onChange={(event) => setNotes(event.target.value)}
             />
           </Field>
-          <Field label="Download link" hint="The store page, or the APK file - an https:// link." required>
-            <Input
-              type="url"
-              value={link ?? status.suggestedDownloadUrl ?? ''}
-              placeholder="https://"
-              maxLength={500}
-              onChange={(event) => setLink(event.target.value)}
-            />
-          </Field>
           <Checkbox
             label="Required update"
-            description="Older builds can't be used until they update - for fixes everyone must have. Someone in a live finishes it first."
+            description="Older versions can't be used until they update - for fixes everyone must have. Someone in a live finishes it first."
             checked={required}
             onChange={(event) => setRequired(event.target.checked)}
           />
@@ -247,17 +227,46 @@ function Publisher({ platforms }: { platforms: Record<AppPlatform, AppPlatformSt
       <ConfirmDialog
         open={confirming}
         onClose={() => setConfirming(false)}
-        title={`Publish ${APP_PLATFORM_LABELS[platform]} ${draft.version} (build ${draft.build})?`}
+        title={`Publish ${APP_PLATFORM_LABELS[platform]} ${draft.version}?`}
         description={
           required
-            ? "Phones on an older build can't use the app until they install it - from the moment they open it, or right away if it's open."
-            : "Phones on an older build are asked to update and shown what's new. People can put it off for a few days."
+            ? "Phones on an older version can't use the app until they install it - from the moment they open it, or right away if it's open. Make sure it's live in the store first."
+            : "Phones on an older version are asked to update and shown what's new. People can put it off for a few days."
         }
         confirmLabel={required ? 'Publish required update' : 'Publish update'}
         tone={required ? 'danger' : 'default'}
         onConfirm={deliver}
       />
     </Card>
+  )
+}
+
+/** Where phones get the update - set on the server, not per release. */
+function StoreField({ platform, link }: { platform: AppPlatform; link: string | null }) {
+  const store = platform === 'IOS' ? 'App Store' : 'Google Play'
+  return (
+    <div>
+      <p className="mb-1.5 text-[13px] font-medium text-zinc-800">Download from</p>
+      {link ? (
+        <a
+          href={link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex h-9 items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-[13px] text-zinc-800 hover:bg-zinc-100"
+        >
+          <Store className="size-4 text-zinc-500" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">{store}</span>
+          <ExternalLink className="size-3.5 text-zinc-400" aria-hidden />
+        </a>
+      ) : (
+        <p className="flex h-9 items-center text-[13px] text-zinc-500">No {store} listing yet</p>
+      )}
+      <p className="mt-1.5 text-xs text-zinc-500">
+        {platform === 'ANDROID'
+          ? 'Phones download it inside the app, from Google Play.'
+          : 'Phones open the App Store to update.'}
+      </p>
+    </div>
   )
 }
 
@@ -308,7 +317,7 @@ function EditReleaseDialog({ release, onClose }: { release: AppRelease | null; o
       open={release !== null}
       onClose={onClose}
       title={release ? `Edit ${releaseName(release)}` : 'Edit update'}
-      description="The version and build stay as published. If either is wrong, withdraw the update and publish it again."
+      description="The version stays as published. If it's wrong, withdraw the update and publish it again."
     >
       {release && <EditReleaseForm release={release} onClose={onClose} />}
     </Dialog>
@@ -317,16 +326,14 @@ function EditReleaseDialog({ release, onClose }: { release: AppRelease | null; o
 
 function EditReleaseForm({ release, onClose }: { release: AppRelease; onClose: () => void }) {
   const [notes, setNotes] = useState(release.notes)
-  const [link, setLink] = useState(release.downloadUrl)
   const [required, setRequired] = useState(release.required)
   const [error, setError] = useState<string | null>(null)
-  const save = useAdminMutation(
-    () => actions.updateRelease(release.id, { notes: notes.trim(), downloadUrl: link.trim(), required }),
-    { toastErrors: false, success: 'Update saved. Phones that are open check again at once.' },
-  )
-  const changed = notes.trim() !== release.notes || link.trim() !== release.downloadUrl || required !== release.required
-  const problem =
-    notes.trim().length < 3 ? "Say what's new." : !isDownloadLink(link.trim()) ? 'Give the download link, starting with https://.' : null
+  const save = useAdminMutation(() => actions.updateRelease(release.id, { notes: notes.trim(), required }), {
+    toastErrors: false,
+    success: 'Update saved. Phones that are open check again at once.',
+  })
+  const changed = notes.trim() !== release.notes || required !== release.required
+  const problem = notes.trim().length < 3 ? "Say what's new." : null
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -345,12 +352,9 @@ function EditReleaseForm({ release, onClose }: { release: AppRelease; onClose: (
       <Field label="What's new" hint={`One change per line. ${notes.trim().length}/1000`} required>
         <Textarea value={notes} rows={5} maxLength={1000} onChange={(event) => setNotes(event.target.value)} data-autofocus />
       </Field>
-      <Field label="Download link" required>
-        <Input type="url" value={link} maxLength={500} onChange={(event) => setLink(event.target.value)} />
-      </Field>
       <Checkbox
         label="Required update"
-        description="Older builds can't be used until they update."
+        description="Older versions can't be used until they update."
         checked={required}
         onChange={(event) => setRequired(event.target.checked)}
       />
@@ -367,16 +371,8 @@ function EditReleaseForm({ release, onClose }: { release: AppRelease; onClose: (
   )
 }
 
-function releaseName(release: Pick<AppRelease, 'platform' | 'version' | 'build'>): string {
-  return `${APP_PLATFORM_LABELS[release.platform]} ${release.version} (build ${release.build})`
-}
-
-function linkHost(url: string): string {
-  try {
-    return new URL(url).host
-  } catch {
-    return url
-  }
+function releaseName(release: Pick<AppRelease, 'platform' | 'version'>): string {
+  return `${APP_PLATFORM_LABELS[release.platform]} ${release.version}`
 }
 
 function releaseColumns(
@@ -402,7 +398,7 @@ function releaseColumns(
           <span className="font-medium text-zinc-900">
             {APP_PLATFORM_LABELS[row.original.platform]} {row.original.version}
           </span>
-          <span className="block text-xs text-zinc-500">build {row.original.build}</span>
+          {row.original.build !== null && <span className="block text-xs text-zinc-500">build {row.original.build}</span>}
         </span>
       ),
     },
@@ -423,17 +419,20 @@ function releaseColumns(
     {
       id: 'link',
       header: 'Download',
-      cell: ({ row }) => (
-        <a
-          href={row.original.downloadUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={row.original.downloadUrl}
-          className="block max-w-48 truncate text-brand-700 hover:underline"
-        >
-          {linkHost(row.original.downloadUrl)}
-        </a>
-      ),
+      cell: ({ row }) =>
+        row.original.downloadUrl ? (
+          <a
+            href={row.original.downloadUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={row.original.downloadUrl}
+            className="block max-w-48 truncate text-brand-700 hover:underline"
+          >
+            {whereFrom(row.original)}
+          </a>
+        ) : (
+          <span className="text-zinc-700">{whereFrom(row.original)}</span>
+        ),
     },
     {
       id: 'publishedBy',

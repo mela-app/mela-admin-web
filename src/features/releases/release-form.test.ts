@@ -1,29 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { compareVersions, isDownloadLink, noteLines, releaseProblem } from './release-form'
+import { compareVersions, noteLines, releaseProblem, whereFrom } from './release-form'
 
-const draft = {
-  version: '1.3.0',
-  build: 13,
-  notes: 'Search in live chat',
-  downloadUrl: 'https://example.com/mela-13.apk',
-}
-const latest = { version: '1.2.0', build: 12 }
+const draft = { version: '1.3.0', notes: 'Search in live chat' }
+const latest = { version: '1.2.0' }
 
 describe('publishing an app update', () => {
-  it('a newer version and build with notes and a link is ready', () => {
+  it('a newer version with notes is ready - no build number, no link', () => {
     expect(releaseProblem(draft, latest)).toBeNull()
-    expect(releaseProblem({ ...draft, version: '1.2.0' }, latest)).toBeNull()
-    expect(releaseProblem({ ...draft, build: 1 }, null)).toBeNull()
+    expect(releaseProblem({ ...draft, version: '1.2.1' }, latest)).toBeNull()
+    expect(releaseProblem(draft, null)).toBeNull()
   })
 
   it('says what is missing or wrong, one thing at a time', () => {
     expect(releaseProblem({ ...draft, version: '1.3' }, latest)).toMatch(/three numbers/)
-    expect(releaseProblem({ ...draft, build: Number('') }, latest)).toMatch(/whole number/)
-    expect(releaseProblem({ ...draft, build: 12.5 }, latest)).toMatch(/whole number/)
-    expect(releaseProblem({ ...draft, build: 12 }, latest)).toBe('The build number must be higher than 12.')
-    expect(releaseProblem({ ...draft, version: '1.1.9' }, latest)).toBe("The version can't be lower than 1.2.0.")
+    expect(releaseProblem({ ...draft, version: '1.2.0' }, latest)).toBe('The version must be newer than 1.2.0.')
+    expect(releaseProblem({ ...draft, version: '1.1.9' }, latest)).toBe('The version must be newer than 1.2.0.')
     expect(releaseProblem({ ...draft, notes: '' }, latest)).toBe("Say what's new.")
-    expect(releaseProblem({ ...draft, downloadUrl: 'http://example.com/mela.apk' }, latest)).toMatch(/https/)
   })
 
   it('compares versions as numbers, part by part', () => {
@@ -32,11 +24,10 @@ describe('publishing an app update', () => {
     expect(compareVersions('1.2.3', '1.2.3')).toBe(0)
   })
 
-  it('downloads only over https, or from this machine while developing', () => {
-    expect(isDownloadLink('https://play.google.com/store/apps/details?id=com.melalive.app')).toBe(true)
-    expect(isDownloadLink('http://localhost:9090/mela.apk')).toBe(true)
-    expect(isDownloadLink('http://192.168.0.5/mela.apk')).toBe(false)
-    expect(isDownloadLink('javascript:alert(1)')).toBe(false)
+  it('says where phones get it', () => {
+    expect(whereFrom({ platform: 'ANDROID', downloadUrl: null })).toBe('Google Play')
+    expect(whereFrom({ platform: 'IOS', downloadUrl: null })).toBe('App Store')
+    expect(whereFrom({ platform: 'ANDROID', downloadUrl: 'https://example.com/mela-12.apk' })).toBe('example.com')
   })
 
   it('shows one point per line, without the bullets people type', () => {

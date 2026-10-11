@@ -358,11 +358,13 @@ export interface HostChat {
 export interface AppRelease {
   id: string
   platform: AppPlatform
+  // What phones compare, as people see it in the store (1.2.0).
   version: string
-  // The number after + in pubspec.yaml - what phones compare.
-  build: number
+  // Only on releases published before versions were compared.
+  build: number | null
   notes: string
-  downloadUrl: string
+  // A link of its own, on those same older releases; null: the store.
+  downloadUrl: string | null
   required: boolean
   createdAt: string
   updatedAt: string
@@ -371,9 +373,12 @@ export interface AppRelease {
 
 export interface AppPlatformStatus {
   latest: AppRelease | null
-  // Builds below this one can't be used.
+  // Versions below this one can't be used.
   required: AppRelease | null
-  suggestedDownloadUrl: string | null
+  // Where phones get updates: Google Play, or the App Store - null until there's a listing.
+  storeLink: string | null
+  // The next patch version, to start the form with.
+  suggestedVersion: string
 }
 
 export interface AppReleasePage extends Page<AppRelease> {

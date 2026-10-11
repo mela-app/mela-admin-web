@@ -270,6 +270,26 @@ its `REVERSED_CLIENT_ID` as a URL scheme in `Info.plist`.
   session), the router goes to login, and "Your account was deleted."
   shows. A staff account is told it's deleted in the console.
 
+## Several accounts on one phone (2026-10)
+
+Like TikTok: up to 5 accounts signed in on one phone, switching with no
+password or PIN. Room bans and everything else stay per account.
+
+**Mobile.**
+- `AccountVault` (`lib/core/accounts/account_vault.dart`) keeps the list (`accounts`), the account in use (`accounts.active`) and each account's own tokens (`session.{userId}.access/refresh`) in secure storage. Writes are serialized. A single-account install's `access_token`/`refresh_token` become the first account on first read.
+- `SessionStore` is one account's tokens. Bound to its account, an `ApiClient` only ever sends and renews that account's tokens, even when a refresh is still in flight during a switch. An unbound store (`SessionStore.signedOut`, the login form) binds to whoever signs in through it and makes them the account in use.
+- `AccountManager` (above the `ProviderScope`) holds the list, `switchTo`, `beginAddAccount`/`cancelAddAccount`, `signedOut` (logging out opens the next signed-in account), `sessionEnded` (the account stays listed as signed out, to sign in again with its username filled in) and `forget`. `withApi(userId, ...)` calls the API as another account with its own tokens.
+- `AccountsHost` builds the whole app for the account in use and rebuilds it from scratch on every switch (a new `ProviderScope`: socket, caches, screens, lives all disposed), behind a short "Switching to @…" cover. Nothing of one account's can show in another's.
+- Switching waits while hosting or on stage (`BroadcastRole.switchAccountNotice`).
+- UI: the username at the top of your own profile (`AccountTitle`) and **Switch account** in the profile and in Settings open `AccountSwitcherSheet`. It lists each account with its unread count, a signed-out account offers sign-in again or **Remove from this phone**, and **Add account** opens the login form with a close button back. A red dot shows when another account has something unread (`refreshUnread`: notifications + messages unread counts, at most every 30 s, on start, resume and opening the switcher). `AccountSync` keeps each account's name and picture current.
+
+**Pushes - every account on the phone gets its own.**
+- The app sends `PUT /me/push-token {token, installationId}` for each signed-in account (`AccountManager.sharePushToken`, once per account per token). `installationId` is random per install (`AccountVault.installationId`, in SharedPreferences, so an uninstall clears it).
+- The server (`NotificationsService.setPushToken`) lets the sessions of one install share a token. It takes the token away from any other install, from older apps that don't send `installationId`, and from the same account's earlier session on the phone, so nobody gets a push twice. Logging out deletes the session, and that account's pushes stop on that phone.
+- `PushProcessor` adds `data.recipientId` to every push and makes collapse keys per account (`{recipientId}:{key}`). On a phone shared with other accounts (`user_sessions` sharing the token), the title starts with `@username · `.
+- Tapping a push for another account switches to it, then opens the route (`takePendingRoute`). One arriving while the app is open shows a banner with **Switch** and bumps that account's unread dot. The phone's token is deleted only when no account is left signed in.
+- Migration `20261013090000_multi_account_push` adds `user_sessions.installationId` and an index on `pushToken`.
+
 ## How to add to this feature
 
 - New login method (e.g. a phone number): add its case to

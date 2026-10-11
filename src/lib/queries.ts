@@ -377,15 +377,9 @@ export const actions = {
   removePhrase: (phraseId: string) => api<{ ok: true }>(`/admin/banned-phrases/${id(phraseId)}`, { method: 'DELETE' }),
   testPhrase: (text: string) => api<PhraseTestResult>('/admin/banned-phrases/test', { method: 'POST', body: { text } }),
 
-  publishRelease: (body: {
-    platform: AppPlatform
-    version: string
-    build: number
-    notes: string
-    downloadUrl: string
-    required: boolean
-  }) => api<AppRelease>('/admin/app-releases', { method: 'POST', body }),
-  updateRelease: (releaseId: string, body: { notes?: string; downloadUrl?: string; required?: boolean }) =>
+  publishRelease: (body: { platform: AppPlatform; version: string; notes: string; required: boolean }) =>
+    api<AppRelease>('/admin/app-releases', { method: 'POST', body }),
+  updateRelease: (releaseId: string, body: { notes?: string; required?: boolean }) =>
     api<AppRelease>(`/admin/app-releases/${id(releaseId)}`, { method: 'PATCH', body }),
   withdrawRelease: (releaseId: string) =>
     api<{ ok: true }>(`/admin/app-releases/${id(releaseId)}`, { method: 'DELETE' }),

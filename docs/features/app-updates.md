@@ -8,115 +8,132 @@
 ## What it does
 
 The team publishes each new version of the app from the console - per
-platform, with what's new, a download link, and whether it's **required**.
-Phones ask whether they're current when the app opens, when it comes back
-to the foreground, and the moment an update is published. A phone on an
-older build is offered the update with everything new since its version;
-below a required update the app can't be used until it's updated. After
-updating, the app shows once what the new version brought.
+platform, with what's new and whether it's **required**. Phones ask whether
+they're current when the app opens, when it comes back to the foreground,
+and the moment an update is published. A phone on an older version is
+offered the update with everything new since its version; below a required
+update the app can't be used until it's updated. On Android, **Google Play
+does the updating inside the app** (in-app updates). After updating, the app
+shows once what the new version brought.
 
-### Versions and builds
+### Versions, not builds
 
-A release has a **version** people see (`1.2.0`, three numbers) and a
-**build number** phones compare: the number after `+` in `pubspec.yaml`
-(`version: 1.2.0+12` - Android's `versionCode`, iOS's `CFBundleVersion`).
-Builds only go up per platform: publishing refuses a build that isn't
-higher than the newest one (`BUILD_NOT_NEWER`), or a version lower than the
-newest one's (`VERSION_OLDER`). Android requires a higher build for an APK
-to install over the old one anyway.
+A release is a **version** (`1.2.0`, three numbers, as in `pubspec.yaml` and
+the store) and what's new in it. Phones compare versions as numbers
+(`1.10.0` is newer than `1.9.0`). The console asks for no build number and no
+link:
 
-APKs built with `--split-per-abi` report `1000 × ABI + build` as their
-version code (Flutter's Gradle plugin: 1008, 2008...). The app takes that
-offset back off (`installedBuild()` in `app_update_controller.dart`), which
-holds while build numbers stay below 1000.
+- The build number is Play's business. It still goes up with every upload,
+  but nobody types it twice - and a mismatch can no longer leave a phone
+  thinking it's out of date after updating.
+- The link is the store: `ANDROID_INSTALL_URL`, or else the Play listing of
+  `ANDROID_APP_PACKAGE_NAME`; `IOS_INSTALL_URL` for the App Store
+  (`store-link.ts`, shared with the share page). Publishing for iOS is refused
+  (`NO_STORE_LINK`) until there's a listing.
 
-### What a phone is told (`GET /v1/app/update?platform&build`)
+Each version must be newer than the newest one published for that platform
+(`VERSION_NOT_NEWER`). Releases from before this change keep their build and
+link, still shown in the console.
 
-Public (signed in or not, so a build too old to sign in can still be told),
-under the API's global throttle. `AppReleasesService.check()` answers:
+### What a phone is told (`GET /v1/app/update?platform&version&build`)
 
-- `status`: `REQUIRED` when any release newer than `build` is required -
+Public (signed in or not, so a version too old to sign in can still be told),
+under the API's global throttle. `AppReleasesService.check()` reads the
+platform's releases and answers:
+
+- `status`: `REQUIRED` when any release newer than `version` is required -
   not only the newest; `AVAILABLE` when there is a newer release;
-  `UP_TO_DATE` otherwise (also for a build newer than anything published).
-- `latest`: the newest release's `version`, `build` and `downloadUrl` - the
-  link phones open, even when an older release is the required one.
-- `changes`: every release newer than `build`, newest first (up to 10) -
-  what's new since this phone's version.
-- `current`: the notes of the installed build itself, for "what's new"
-  after updating.
+  `UP_TO_DATE` otherwise (also for a version newer than anything published).
+- `latest`: the newest release's `version` and `downloadUrl` (the store).
+- `changes`: every release newer than `version`, newest version first (up to
+  10) - what's new since this phone's version.
+- `current`: the notes of the installed version itself, for "what's new".
+
+Apps from before this change send only `build`: they're compared by build
+with the releases that have one, and are behind every release published
+since (those have none), so they're told to update.
 
 ### On the phone (`lib/features/app_update`)
 
 `AppUpdateGate` wraps the router in `MaterialApp.router`'s `builder`;
-`AppUpdateController` (`appUpdateProvider`) holds the last answer.
+`AppUpdateController` (`appUpdateProvider`) holds the last answer and what
+Google Play has (`StoreUpdater`: `PlayStoreUpdater` on Android, through the
+`in_app_update` plugin - Google's Play Core in-app updates).
 
 - **When it asks**: on launch; on coming back to the foreground, at most
-  every 30 minutes (`recheckAfter`); right away on `app:update` for its
-  platform (only while signed in - the socket only runs then); and from
-  **Settings → About → Version** ("Check for updates").
-- **An available update** opens a sheet: the new version, what's new (one
-  point per line of the notes; each version named when there are several),
-  **Update now** (opens the link in the store or the browser -
-  `url_launcher`) and **Later**. Either answer puts that build off for 3
-  days (`postponeFor`); a newer build is offered at once. The Settings
-  tile keeps saying an update is available.
+  every 30 minutes (`recheckAfter`) - Play itself on every return, as a
+  download may have finished; right away on `app:update` for its platform
+  (while signed in); and from **Settings → About → Version**. Play is only
+  asked when the server says there's an update.
+- **An available update** opens a sheet: the new version, what's new,
+  **Update now** and **Later** (3 days, `postponeFor`; a newer version is
+  offered at once).
+  - Installed from Google Play: **Update now** downloads it in the background
+    (a *flexible* update) while Mela stays usable ("Downloading the
+    update…"). Once downloaded: "The update is ready - **Restart**" - one tap
+    installs it and Mela restarts on the new version. Settings shows the same
+    ("Downloading…", "tap to restart"), and a download finished while the app
+    was closed is picked up on the next launch.
+  - Anywhere else (an APK from elsewhere, a debug build, iPhones): the store
+    page opens.
+  - Play doesn't have it for this phone yet (a staged rollout, or still in
+    review): nothing is offered; Settings says it's on its way.
+- **The offer closes by itself** once it no longer applies - the phone is up
+  to date (updated, or the team withdrew it), it became required (its own
+  screen takes over), or it's downloading.
 - **A required update** replaces the whole app with a screen that can only
-  update - the router is taken down, so nothing behind it runs. Pressing
-  back leaves the app.
-- **Never during a live**: nothing is shown while the phone is watching
-  (`/live/...`), setting up (`/go-live`), hosting or on a stage
-  (`broadcastingProvider`). A required update waits until the live is left.
-- **What's new** shows once, on the first launch of a newer build, when the
-  team published notes for it. A fresh install - or the first version with
-  this feature - just records its build. If an update is offered on the
-  same launch, its notes cover what's new and this sheet is skipped.
-- Kept on the device (`shared_preferences`): `app_update_postponed_build`,
-  `app_update_postponed_until`, `app_update_seen_build`. A failed check
-  keeps the last answer and asks again on the next launch or resume.
-- The download link opens only if it's `https` (or `http` while developing);
-  a phone never opens anything else the server sends.
+  update. From Google Play, Play's own full-screen update (*immediate*) opens
+  by itself - it downloads, installs and restarts Mela; turned down, the
+  screen stays with **Update now** to try again. An update left half-way is
+  resumed when the app comes back. If Play hasn't got it for this phone yet,
+  the screen says it's on its way. Pressing back leaves the app.
+- **Never during a live**: nothing is shown while the phone is watching,
+  setting up, hosting or on a stage. A required update waits until the live
+  is left.
+- **What's new** shows once, on the first launch of a newer version, when the
+  team published notes for it. A fresh install just records its version.
+- Kept on the device (`shared_preferences`): `app_update_postponed_version`,
+  `app_update_postponed_until`, `app_update_seen_version`. A phone with
+  `app_update_seen_build` from before counts as having seen an older version.
 
 ### In the console (`/app-updates`, under Manage)
 
-Each platform's newest release and the build below which phones must
-update; **Publish an update** (version, build number, what's new, the
-download link - the platform's last link is suggested - and "Required
-update"), with a preview of the sheet or screen phones will show, and a
-confirmation before publishing; the history, where a release can be
-**edited** (what's new, the link, required or not - the version and build
-stay) or **withdrawn** (phones stop being told about it; a withdrawn
-required update no longer holds anyone up). Every change reaches the open
-apps at once.
+Each platform's newest version and the version below which phones must
+update; **Publish an update** (the version - the next patch is suggested -
+what's new, and "Required update"; where phones get it is shown read-only:
+Google Play or the App Store), with a preview of the sheet or screen phones
+will show, and a confirmation before publishing; the history, where a
+release can be **edited** (what's new, required or not - the version stays)
+or **withdrawn** (phones stop being told about it; a withdrawn required
+update no longer holds anyone up). Every change reaches the open apps at once.
 
-Access: `VIEW_APP_RELEASES` (see what was published) and
-`MANAGE_APP_RELEASES` (publish, edit, withdraw), the **App updates** area
-in a platform moderator's access. Audited as `app.release_published`,
-`app.release_updated` (with the fields that changed) and
-`app.release_withdrawn` - category Settings, target `APP_RELEASE`
-("Android 1.2.0 (12)").
+Access: `VIEW_APP_RELEASES` and `MANAGE_APP_RELEASES`. Audited as
+`app.release_published`, `app.release_updated` (with the fields that
+changed) and `app.release_withdrawn` - target `APP_RELEASE` ("Android 1.2.0").
 
 ### Data and events
 
-- `app_releases` (`AppRelease`): `platform` (`AppPlatform`: `ANDROID`,
-  `IOS`), `version`, `build` (unique per platform), `notes`, `downloadUrl`,
-  `required`, `publishedById`, timestamps. Migration
-  `20261005090000_app_releases` (also adds the two permissions).
-- Domain event `app_release.changed` (`AppReleaseChangedPayload`: `change`
-  is `published`, `updated` or `withdrawn`, plus the release and the actor).
-  `RealtimeGateway` relays it to every socket as `app:update {platform}`;
-  `AuditEventsListener` records it.
+- `app_releases` (`AppRelease`): `platform` (`ANDROID`, `IOS`), `version`,
+  `notes`, `required`, `publishedById`, timestamps; `build` and `downloadUrl`
+  only on releases from before versions were compared (migration
+  `20261015090000_releases_by_version` made both optional).
+- Domain event `app_release.changed` (`published`, `updated` or `withdrawn`,
+  plus the release and the actor). `RealtimeGateway` relays it to every
+  socket as `app:update {platform}`; `AuditEventsListener` records it.
 
 ### Releasing a new version
 
-1. Bump `version:` in mela-mobile's `pubspec.yaml` - the version as people
-   should see it, and a higher build number (`1.2.0+12`).
-2. Build it (mela-mobile README, "A release APK") and put it where phones
-   can download it over https - the store, or the server.
-3. In the console, **App updates → Publish an update**: the same version
-   and build, one change per line, the download link. Tick **Required
-   update** only for fixes everyone must have.
+1. Bump `version:` in mela-mobile's `pubspec.yaml` - a newer version and, as
+   Play requires, a higher build number (`1.3.0+14`).
+2. Build the app bundle and upload it to Google Play (any track: internal,
+   closed testing, production).
+3. **Once Play has it live on that track**, in the console: **App updates →
+   Publish an update** with the same version and one change per line. Tick
+   **Required update** only for fixes everyone must have.
 
-Publish only once the build can be downloaded: open apps are told at once.
+In-app updates only work for an app installed from Google Play (testers
+too, from the testing track's link). Publishing a little early does no harm:
+a phone Play hasn't got it for yet is simply not asked.
 
 ## How to add to this feature
 
@@ -154,7 +171,7 @@ Publish only once the build can be downloaded: open apps are told at once.
    `INCLUDES` and the console's access areas.
 4. Console: the route, the sidebar entry and `features/releases`.
 5. Mobile: `AppUpdateGate` in `main.dart`, `AppVersionTile` in Settings,
-   `lib/features/app_update`, `appUpdateRepositoryProvider`, and
+   `lib/features/app_update`, `appUpdateRepositoryProvider`, the `in_app_update` package, and
    `url_launcher` (plus its `<queries>` entry in `AndroidManifest.xml`) if
    nothing else uses it.
 
@@ -163,20 +180,23 @@ they get a 404, treat it like being offline, and carry on.
 
 ## Tests
 
-- Backend (jest): `app-releases/app-releases.service.spec.ts` (up to date,
-  available with what's new, required by an older release),
-  `app-releases/app-release.rules.spec.ts` (versions, https links),
-  `admin/releases/admin-releases.service.spec.ts` (publishing rules, a race
-  on the same build, editing only what changed, withdrawing, the platform
-  summary), plus cases in `audit/audit-events.listener.spec.ts` and
-  `realtime/realtime.gateway.spec.ts`.
-- Console (vitest): `features/releases/release-form.test.ts`, and the
-  access area in `lib/permissions.test.tsx`.
-- Mobile: `app_update_test.dart` (the answer, notes, split-APK builds, when
-  to offer and when to show what's new, the request, rechecking, the
-  realtime event, what's kept on the device) and
-  `app_update_gate_test.dart` (the sheet, Later, Update now, the required
-  screen, waiting out a live or a broadcast, what's new once, a first
-  install).
-- Not unit-tested: opening a real store page or APK link (`url_launcher`) -
-  check on a device.
+- Backend (jest): `app-releases/app-releases.service.spec.ts` (by version -
+  1.10.0 after 1.9.0 - up to date, available from Google Play with what's
+  new, required by an older release, at most 10 releases, apps that send
+  only a build, no App Store listing), `app-releases/app-release.rules.spec.ts`
+  (versions), `admin/releases/admin-releases.service.spec.ts` (no build or
+  link, only newer versions, iOS needs a listing, editing only what changed,
+  withdrawing, the platform summary with the next version), plus cases in
+  `audit/audit-events.listener.spec.ts` and `realtime/realtime.gateway.spec.ts`.
+- Console (vitest): `features/releases/release-form.test.ts`, and the access
+  area in `lib/permissions.test.tsx`.
+- Mobile: `app_update_test.dart` (the answer, versions, when to offer - not
+  while Play hasn't got it or it downloads - what's new, the request,
+  rechecking, the realtime event, what's kept on the device, and through a
+  fake Google Play: the background download and restart, Play's own screen
+  for a required update, a download finished earlier, not on Play yet, not
+  from Play) and `app_update_gate_test.dart` (the sheet, Later, the store
+  page, the required screen, waiting out a live or a broadcast, what's new
+  once, a first install, the offer closing by itself, and the Play flows).
+- Not unit-tested: Google Play itself (`PlayStoreUpdater`) - check on a phone
+  that installed Mela from a Play testing track.

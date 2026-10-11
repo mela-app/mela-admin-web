@@ -13,12 +13,26 @@ explicit Prisma `select` (`PUBLIC_PROFILE_SELECT`) rather than the raw row,
 so `passwordHash` (and any session/token data, which now lives in `user_sessions`) can never leak, even by accident
 later.
 
-**Profile fields**: `displayName`, `bio` (≤ 280 chars), `avatarUrl`,
+**Profile fields**: `username`, `displayName`, `bio` (≤ 280 chars), `avatarUrl`,
 `profileVisibility` (`EVERYONE` | `FOLLOWERS` | `FRIENDS` | `ONLY_ME`),
 `profileSharing` (the same values - who may share the profile's link,
 docs/features/social.md) -
-all editable via `PATCH /users/me`, which passes the DTO straight to
-Prisma (the DTO's shape *is* the allow-list). Every profile response also
+`shareLiveJoins` (whether followers hear when you join a live,
+docs/features/notifications.md) -
+all editable via `PATCH /users/me` (the DTO's shape *is* the allow-list).
+
+**How often names change** (client request, 2026-10): a new `username`
+once in 30 days, a new `displayName` once in 7 (`name-change-rules.ts`,
+`users.usernameChangedAt` / `displayNameChangedAt`, migration
+`20261012090000_name_change_limits`). Too soon is a 400 with
+`code: 'USERNAME_CHANGE_TOO_SOON' | 'DISPLAY_NAME_CHANGE_TOO_SOON'` and
+`nextChangeAt`; a username someone else has (any case) is a 409. Sending
+the current name again isn't a change and isn't counted; staff fixes in the
+console aren't limited. Only the owner's own profile carries
+`usernameChangeableAt` / `displayNameChangeableAt` (null: may change now)
+and `shareLiveJoins`. The app's edit-profile screen shows both fields, locks
+one until its date ("You can change it again on ..."), and asks before a
+change starts the wait. Every profile response also
 carries `followerCount`, `followingCount`, `isFollowing`, `isFollowedBy`,
 `isFriend`, `notifyOnLive` (this viewer's own bell state for that profile),
 `liveStreamId` (their current live's id, or `null`) and `canViewProfile` -

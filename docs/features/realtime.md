@@ -78,6 +78,27 @@ The `user.suspended` and `user.sessions_revoked` events force-disconnect that us
 - **`LiveRoom.viewer` / `LiveRoom.host`**: one live's room on that connection. It (re)joins on every connect and emits `RoomSynced` with the full state, so whatever was missed offline - a layout switch, the host stepping away or pausing - is caught up; then `ViewerCountChanged`, `LayoutChanged`, `HostAwayChanged`, `PausedChanged`, and `RoomEnded(reason)`, once. A host room sends a heartbeat every 15 s, paused while `setAway(true)`, and `setPaused` sends `stream:host_pause` (and every rejoin re-sends the current pause state); `STREAM_NOT_LIVE` ends the room and `NOT_HOST` rejoins. An unanswered join is retried after 5 s.
 - Both live screens start the connection as they open (in parallel with the video connect); they show the viewer count (the host also the live timer - viewers don't see how long it's been running, docs/features/streams.md), and switch to `LiveEndedView`, with the reason, when the room ends. The timer is `LiveBadge(clock:)`: `LiveClock` corrects the phone's clock by the server's (`serverTime` in the go-live response), so the duration is right even on a phone whose clock is off, and it keeps counting through sleep. `GoLiveScreen` calls `setAway` from its `AppLifecycleListener` (`onHide` / `onShow`).
 
+## Several API instances (2026-10)
+
+The API can run as several replicas behind a load balancer:
+
+- **Rooms span instances**: `RealtimeIoAdapter` uses `@socket.io/redis-adapter` over two dedicated Redis connections (pub/sub), so an event for a live's room or someone's `user:{id}` room reaches sockets on every instance. The app and the web player connect over **WebSocket only**, so no sticky sessions are needed.
+- **Presence per instance** (`LivePresenceService`): every instance has an id and a heartbeat (`realtime:instance:{id}:alive`, 30 s TTL, every 10 s), and records which viewer sockets it holds (`realtime:instance:{id}:sockets`). A stopped instance removes its own viewers on shutdown; a crashed one's are removed by another instance once its heartbeat runs out, and their lives' counts are re-announced (`presence.changed`). Only the first instance up (no other alive) wipes every viewer list, as before.
+- **Jobs run once**: the live sweeper and the scheduled-live reminders take a Redis lock per round (`RedisService.runExclusive`); the others skip it. BullMQ (push) was already safe.
+- **Device counts** for admin alerts (`connectedCount`) ask every instance (`allSockets()` through the adapter).
+- Throttles (viewer counts, likes, arrivals, guest drags) stay per instance: each broadcasts what it handled, read from Redis, so counts are right; a busy live may see one update per instance per interval.
+
+## LiveKit webhooks (2026-10)
+
+`POST /v1/livekit/webhook` (`LiveKitWebhookController`, raw body - LiveKit signs its exact bytes; signature checked by `LiveKitVideoProvider.receiveWebhook`) takes the room events of hosts and guests (viewers can't publish, so theirs are ignored):
+
+- The host's video in the room keeps a live on while their app's realtime connection is down (weak networks drop that more easily than the video) - `presentHosts()` counts a host present with a heartbeat, or with their video in the room for up to 10 minutes after they were last heard (`HOST_MEDIA_GRACE_MS`).
+- The host's video leaving with no heartbeat ends the live at once (`HOST_DISCONNECTED`), rather than at the next sweep.
+- A guest whose video left and didn't come back within 75 s is taken off the stage (no frozen tile).
+- A closed room with the host's app silent ends the live; with the app still there, `POST /streams/:id/publisher-token` reopens the room as it reconnects.
+
+Enable it in `infra/livekit/livekit.yaml` (`webhook:` block - the API key and `http://127.0.0.1:<API_PORT>/v1/livekit/webhook`); without it everything works as before, on heartbeats alone.
+
 ## How to add to this feature
 
 - **Chat (Phase 2)**: add `chat:send`/`chat:new` handlers to this gateway (same `stream:{id}` rooms, same ack shape), and on mobile a room class next to `LiveRoom` built on `RealtimeClient.request` / `messages`, rather than standing up a second socket.

@@ -73,6 +73,9 @@ Where its tests live and what they cover.
 | App updates (update prompts, required updates, what's new) | [app-updates.md](./app-updates.md) | Done (2026-10) |
 | Reports (in the app; the console's Reports page) | [moderation.md](./moderation.md), [admin.md](./admin.md) | Done (2026-10) |
 | Account deletion (in the app, by a super admin, and the `/delete-account` page) | [auth.md](./auth.md) | Done (2026-10) |
+| For You ranking, live search, followers'/friends' lives, live pictures, scheduled lives with reminders | [streams.md](./streams.md) | Done (2026-10) |
+| Several API instances (Redis adapter, per-instance presence), LiveKit webhooks | [realtime.md](./realtime.md) | Done (2026-10) |
+| Pushes for direct messages | [notifications.md](./notifications.md) | Done (2026-10) |
 | Brand (Mela logo, icons, splash) & production Docker deploy | [Brand assets](../../README.md#brand-assets) (this repository's README), [../deployment.md](../deployment.md) | Done (Phase 9) |
 
 Phase 1.5 (hardening) changes `auth`, `realtime`, and `streams` in place rather than adding new modules — update those docs as each task lands. See [task-breakdown.md](../task-breakdown.md) for the phase map.

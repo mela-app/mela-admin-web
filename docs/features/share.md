@@ -2,7 +2,7 @@
 
 **Location**: `apps/backend/src/share` + `apps/web` (the share page's browser player) + mobile `lib/features/live_stream` (share button), `lib/app` (deep link wiring)
 **Plan reference**: plan §6.12
-**Depends on**: `social` (friends-only check for in-app invites), `common/rate-limit` (anti-spam); the web player on `streams` (`POST /streams/:id/watch`), `realtime` (watch-only sockets) and `auth` (web sign-in)
+**Depends on**: `social` (block checks and who may watch, for in-app invites), `common/rate-limit` (anti-spam); the web player on `streams` (`POST /streams/:id/watch`), `realtime` (watch-only sockets) and `auth` (web sign-in)
 **Depended on by**: nothing imports this module - `ShareService.sendInvites()` emits a `stream.invite_sent` domain event that `notifications` reacts to (see docs/features/notifications.md); nothing else depends on it either
 
 ## What it does
@@ -11,13 +11,15 @@
   friends" from the live screen): 404s unless the stream is currently live;
   a per-sender token-bucket rate limit (5 batches/minute via
   `RateLimitService`) rejects a burst; the requested user ids are
-  deduplicated, filtered to yourself removed, and re-checked server-side
-  against `SocialService.isFriend()` (mutual follows) even though the
-  mobile "send to friends" sheet only ever lists friends already - the
-  server never trusts a client-supplied id list at face value; a Redis SET
-  (`invite:{streamId}:{senderId}`, 24h TTL) caps distinct invites to 20 per
-  sender per stream, refusing once it's full rather than silently dropping
-  the rest. Whatever's left after all of that emits one `stream.invite_sent`
+  deduplicated, yourself removed, and re-checked server-side - the server
+  never trusts a client-supplied id list at face value: active accounts
+  only, nobody blocked either way with the sender or the host, and only
+  people who may watch that live (a followers' or friends' live). Friend
+  or not (client request, 2026-10: the sheet also searches anyone), each
+  person is sent a live **once per sender per live** - a Redis SET
+  (`invite:{streamId}:{senderId}`, 24h TTL) remembers who, and also caps
+  distinct invites to 20 per sender per stream, refusing once it's full
+  rather than silently dropping the rest. Whatever's left after all of that emits one `stream.invite_sent`
   domain event `{streamId, senderId, recipientIds}` - `NotificationsService`
   does the actual notification fan-out (§6.11), so this module never
   touches the `notifications` table directly.
@@ -165,7 +167,9 @@
   `APP_LINK_BASE_URL` in the app's `.env`: the custom scheme
   (`gamblinglive://live`) until a domain exists, then
   `https://{domain}/live`) or "send to friends" (`send_to_friends_sheet.dart` - multi-select
-  from `GET /users/me/friends`, then `ShareRepository.sendInvites()`).
+  from `GET /users/me/friends`, or anyone through `GET /users/search` in its search box, then
+  `ShareRepository.sendInvites()`; whoever this device already sent the live to shows as "Sent",
+  `sentInvitesProvider`).
 - **Security**: a share link is never an access grant on its own -
   `POST /streams/:id/join` still enforces room bans/blocks server-side
   regardless of how the viewer got there, so a leaked link can't bypass

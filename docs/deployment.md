@@ -211,6 +211,10 @@ flutter build appbundle --release --dart-define-from-file=.env.production
 (`flutter build ipa` takes the same flag; the app has no built-in addresses
 and refuses to start without them.) Android release builds are signed with the upload key named in mela-mobile's `android/key.properties` (gitignored, like the keystore itself - mela-mobile's README); without that file they fall back to the debug key, which is fine for test APKs but not for the Play Store. Bump `version:` in mela-mobile's `pubspec.yaml` for every store upload - the build number after the `+` must always increase. For verified app links, fill `ANDROID_APP_SHA256_FINGERPRINT` / `APPLE_APP_ID` in `.env` ([features/share.md](features/share.md)). Once the app is in the stores, check where the share page's "Get the app" goes: `ANDROID_INSTALL_URL` defaults to the Play Store listing of `ANDROID_APP_PACKAGE_NAME`, and `IOS_INSTALL_URL` must be set to the App Store listing before iPhones get a store link.
 
+## Running several API instances
+
+The API is ready to run as more than one container (docs/features/realtime.md, "Several API instances"): Socket.IO rooms go through Redis, presence is tracked per instance, and the sweeper and reminder jobs run on one instance at a time. Put the instances behind the reverse proxy with WebSocket upgrades on (Caddy and nginx do it by default for `/socket.io/`); no sticky sessions are needed because the apps use WebSocket only. Every instance must share the same Redis, Postgres and `.env`. The `migrate` container still runs once per deploy.
+
 ## Notes
 
 - **Client IPs**: `TRUST_PROXY` counts the proxy hops in front of the API.

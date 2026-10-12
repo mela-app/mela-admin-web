@@ -25,7 +25,7 @@ never anything special to any other host.
 **Capabilities** (`ModeratorCapability` enum - the host picks any subset,
 never all-or-nothing): `DELETE_MESSAGES`, `PIN_MESSAGES`, `MUTE_CHAT`,
 `BAN_USERS`, `MANAGE_GUEST_REQUESTS`, `REMOVE_GUESTS`, `FORCE_MUTE_GUESTS`,
-`ARRANGE_GUESTS`.
+`ARRANGE_GUESTS`, `EDIT_BOARD`.
 `DELETE_MESSAGES`, `PIN_MESSAGES` and `BAN_USERS` gate chat delete/pin and
 room bans; `MANAGE_GUEST_REQUESTS` and `REMOVE_GUESTS` gate answering raised
 hands and taking guests off the stage (Phase 6, docs/features/guests.md);
@@ -34,6 +34,8 @@ hands and taking guests off the stage (Phase 6, docs/features/guests.md);
 and `ARRANGE_GUESTS` moving and resizing guests' tiles on the stage, and
 putting a guest on the full stage
 (2026-10, docs/features/guests.md - part of the "Guest manager" preset).
+`EDIT_BOARD` writes, edits, moves and takes down the live's board (2026-10,
+docs/features/streams.md, "The board" - in the "Full moderator" preset).
 **Presets** ("Chat moderator",
 "Guest manager", "Full moderator" from plan §6.9) are a pure mobile-UI
 convenience over this same flat capability list - the backend has no

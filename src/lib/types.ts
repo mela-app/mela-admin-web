@@ -35,6 +35,7 @@ export type ModeratorCapability =
   | 'REMOVE_GUESTS'
   | 'FORCE_MUTE_GUESTS'
   | 'ARRANGE_GUESTS'
+  | 'EDIT_BOARD'
 export type BannedPhraseSeverity = 'REJECT' | 'MASK'
 export type AlertScope = 'GLOBAL' | 'STREAM'
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL'

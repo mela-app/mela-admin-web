@@ -72,6 +72,7 @@ export const CAPABILITY_LABELS: Record<ModeratorCapability, string> = {
   REMOVE_GUESTS: 'Remove guests',
   FORCE_MUTE_GUESTS: 'Mute guests',
   ARRANGE_GUESTS: 'Arrange guests',
+  EDIT_BOARD: 'Edit the live board',
 }
 
 export const PHRASE_SEVERITY_LABELS: Record<BannedPhraseSeverity, string> = {

@@ -1,3 +1,4 @@
+import { liveName } from '../../lib/live-name'
 import { getRouteApi, Link } from '@tanstack/react-router'
 import { Lock, LockOpen, Megaphone, UserRound } from 'lucide-react'
 import { useState } from 'react'
@@ -69,16 +70,16 @@ function StreamView({ stream }: { stream: StreamDetail }) {
               Lives
             </Link>
             <span className="mx-1.5 text-zinc-300">/</span>
-            <span className="text-zinc-700">{stream.title}</span>
+            <span className="text-zinc-700">{liveName(stream)}</span>
           </>
         }
-        title={stream.title}
+        title={liveName(stream)}
         meta={
           <>
             <StreamStatusBadge status={stream.status} />
             {stream.paused && live && <Badge tone="neutral">Paused by host</Badge>}
             <span className="text-[13px] text-zinc-500">
-              {stream.category ?? 'No category'} · started {formatDateTime(stream.startedAt)}
+              {stream.category ? `${stream.category} · ` : ''}started {formatDateTime(stream.startedAt)}
             </span>
           </>
         }

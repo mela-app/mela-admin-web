@@ -1,3 +1,4 @@
+import { liveName } from '../../lib/live-name'
 import { getRouteApi, Link } from '@tanstack/react-router'
 import { MessageSquareText, Radio } from 'lucide-react'
 import { useState } from 'react'
@@ -244,10 +245,10 @@ function LiveHeading({ live, day }: { live: LiveChatLive; day: string }) {
       <Radio className="size-3.5 text-zinc-400" aria-hidden />
       {auth.can('VIEW_LIVES') ? (
         <Link to="/streams/$streamId" params={{ streamId: live.id }} className="font-medium text-zinc-900 hover:underline">
-          {live.title}
+          {liveName(live)}
         </Link>
       ) : (
-        <span className="font-medium text-zinc-900">{live.title}</span>
+        <span className="font-medium text-zinc-900">{liveName(live)}</span>
       )}
       <span>started {started}</span>
       <StreamStatusBadge status={live.status} />

@@ -1,3 +1,4 @@
+import { liveName } from '../../lib/live-name'
 import { Link, useNavigate } from '@tanstack/react-router'
 import type { ColumnDef, SortingState } from '@tanstack/react-table'
 import { Radio } from 'lucide-react'
@@ -92,9 +93,11 @@ function streamColumns(hideHost: boolean): Array<ColumnDef<StreamRow>> {
             params={{ streamId: row.original.id }}
             className="block truncate font-medium text-zinc-900 hover:underline"
           >
-            {row.original.title}
+            {liveName(row.original)}
           </Link>
-          <span className="block truncate text-xs text-zinc-500">{row.original.category ?? 'No category'}</span>
+          {row.original.category && (
+            <span className="block truncate text-xs text-zinc-500">{row.original.category}</span>
+          )}
         </span>
       ),
     },

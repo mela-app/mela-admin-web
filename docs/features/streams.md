@@ -53,6 +53,70 @@ These supersede the ranking and visibility notes above.
 
 **Host screen layout** (client feedback, 2026-10): while live, the top left is the host's own picture and name with the LIVE timer under it (`_HostIdentity`), and the top right a red power button that ends the live (with the usual confirmation) - the old top-left X and the bottom stop button are gone; before going live the preview keeps its close X. On both live screens the chat takes at most 22% of the stage's height (`kStageChatHeightFraction`, was 30%), which brings the live's title down, and sits just above the controls (the arrival row under it is the gap).
 
+## No title or game type; the board; camera effects (client request, 2026-10)
+
+### No title or game type
+
+The app no longer asks for a title ("e.g. High-stakes Friday night") or a
+game type (the Poker / Slots / … chips), on the go-live screen or as a
+filter on the main screen.
+
+- `POST /v1/streams`: `title` and `category` are optional (older apps still send them). A live started from a scheduled live takes that one's title; any other has an empty title.
+- Everything that showed a title falls back:
+  - **Notifications:** "Abebe is live now", "… invited you to a live".
+  - **Share page:** "Abebe's live" (`liveLabel`/`titleSuffix`, `streams/live-title.ts`).
+  - **Audit and report labels:** `null`, or "Live by @abebe".
+  - **Console:** `liveName` (`lib/live-name.ts`).
+- **App:** discovery cards and the swipe preview lead with the host (avatar and name), plus the scheduled title when there is one. The placeholder art is per host (`AppColors.liveGradient(hostId)`), and the stage no longer shows a title panel.
+- **Kept:** the `title`/`category` columns, the `category` query filter, and scheduled lives' own title (it says what's coming).
+
+### The board
+
+A short, see-through text the host puts on the stage, for example "Bingo round 3 at 8:30".
+
+- **Who:** the host, or a moderator holding the new `EDIT_BOARD` capability ("Write and move the text on the live"; Full moderator includes it).
+- **What they can do:** write it, edit it any time, drag it anywhere, and take it down. Everyone in the live sees each change at once, the web player too.
+
+**Data and API.**
+- **Columns:** `streams.boardText` (null: none), and `boardX`, `boardY` (0 to 1, placing it within the stage's free space). Migration `20261016090000_live_board` (adds the columns and `EDIT_BOARD`).
+- **`PUT /v1/streams/:id/board {text?, x?, y?}`:** leaving out `text` moves the board that's there.
+- **`DELETE /v1/streams/:id/board`:** takes it down (`LiveBoardService`, `src/live-board`).
+- **Text rules:** at most 4 lines and 120 characters. Spaces in a line are tidied and blank lines dropped (`cleanBoardText`). Live chat's banned-phrase filter applies (REJECT refuses with `BOARD_BLOCKED`, MASK masks), and so does its link policy (`LINK_NOT_ALLOWED`).
+- **Realtime:** event `stream.board_changed` → `stream:board {streamId, board}` to the room. The room state from `stream:join`, `stream:watch` and `stream:host_join` carries `board`, so late joiners and reconnects get it. `POST /streams` and `/join` answers carry it as `boardText`/`boardX`/`boardY`.
+
+**App.**
+- **On screen:** `LiveBoardView` on the stage (`LiveStage.board`), above the video and guests and under the controls and chat. It's never hidden with the controls. Its area is the video, clear of the top bar and bottom controls, so dragging can't put it under a button.
+- **Look:** see-through black at 28%, with white text and a soft shadow.
+- **Editing:** editors drag it (the move is saved on release, shown at once, and put back if refused) and tap it to edit or remove (`showBoardEditor`). `BoardController` keeps it in step.
+- **Entry points:** the host has **Text** in the live controls; a moderator with `EDIT_BOARD` has a **Text** button on the right rail.
+- **Web player:** `Stage.tsx` draws it the same way (CSS: `left x%` and `translate(-x%)`, Flutter's `Align`).
+
+### Camera effects (beauty and filters)
+
+**Beauty:**
+- **Smooth:** an edge-keeping blur, strongest on skin tones.
+- **Brighten:** a log curve that lifts shadows and midtones.
+- **Rosy:** a warm glow on skin.
+
+One-tap looks: **Off**, **Natural** and **Glow**.
+
+**Filters:** None, Natural, Warm, Cool, Vivid, Soft, Vintage and Mono, each a 3x4 color matrix (`CameraFilter`), with a **Strength** slider.
+
+What's seen in the preview is what viewers get. Settings are kept on the phone (`cameraEffectsProvider`, `shared_preferences`) and used from the first preview frame. A guest's camera on stage wears the phone's saved look too.
+
+**How it's drawn.**
+- **LiveKit on Android:** `CameraEffects.kt` adds a processor to flutter_webrtc's `LocalVideoTrack` (its `ExternalVideoFrameProcessing` hook).
+  - **Pipeline:** each camera frame (an OES or RGB texture, on WebRTC's camera thread with its EGL context) is drawn through one fragment shader into a pooled `GlTextureFrameBuffer` (4 of them), and goes on as a `TextureBufferImpl`. Nothing is copied to the CPU.
+  - **When nothing is on**, frames pass through untouched.
+  - **Pool full:** a frame goes out as it came.
+  - **GL errors:** the effects turn off for that camera; the live goes on.
+  - **New camera:** effects are put on every new camera track (flip, reopen, camera back on) through `onCameraStarted`.
+  - **Dependency:** the app compiles against the same WebRTC flutter_webrtc ships, as `compileOnly`. Keep the versions in step when upgrading flutter_webrtc.
+- **Agora:** its own `setBeautyEffectOptions` (smooth, brighten, rosy); Agora has no color filters, so the sheet shows Beauty only.
+- **iOS:** not yet (`supportsEffects` false on LiveKit/iOS).
+
+**UI:** **Effects** on the go-live preview and in the live controls opens `showEffectsSheet`. It's see-through at the top, so the host watches the change as it happens.
+
 ## How to add to this feature
 
 - **A new room-ban scope**: add the value to the Prisma `RoomBanScope` enum (+ migration) and a branch whichever side of `RoomBansService.ban()`/`isBanned()` needs it - both already switch on `scope`, not a boolean.

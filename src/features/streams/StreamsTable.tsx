@@ -11,9 +11,11 @@ import { EmptyState } from '../../components/ui/feedback'
 import { RelativeTime } from '../../components/ui/misc'
 import { formatDateTime, formatDuration, formatNumber } from '../../lib/format'
 import { END_REASON_LABELS } from '../../lib/labels'
-import { useStreams } from '../../lib/queries'
+import { useHostingInForce, useStreams } from '../../lib/queries'
 import { DEFAULT_PAGE_SIZE } from '../../lib/search'
-import type { StreamRow } from '../../lib/types'
+import { useAuth } from '../../lib/auth-context'
+import type { HostingInForce, StreamRow } from '../../lib/types'
+import { HostingBadge } from '../hosting/HostingStatus'
 
 interface StreamsTableProps {
   search: StreamsSearch
@@ -25,9 +27,15 @@ interface StreamsTableProps {
 }
 
 export function StreamsTable({ search, onPageChange, onPageSizeChange, onSortChange, hideHost, emptyText }: StreamsTableProps) {
+  const auth = useAuth()
   const streams = useStreams(search)
   const navigate = useNavigate()
-  const columns = useMemo(() => streamColumns(hideHost ?? false), [hideHost])
+  // Which hosts can't host right now: a badge by their name.
+  const hosting = useHostingInForce(
+    (streams.data?.items ?? []).map((row) => row.host.id),
+    auth.can('VIEW_HOSTING_RESTRICTIONS'),
+  )
+  const columns = useMemo(() => streamColumns(hideHost ?? false, hosting), [hideHost, hosting])
   const sorting: SortingState = [{ id: search.sort ?? 'startedAt', desc: (search.order ?? 'desc') === 'desc' }]
 
   return (
@@ -80,7 +88,7 @@ export function HostStreamsTable({ hostId }: { hostId: string }) {
   )
 }
 
-function streamColumns(hideHost: boolean): Array<ColumnDef<StreamRow>> {
+function streamColumns(hideHost: boolean, hosting: Map<string, HostingInForce>): Array<ColumnDef<StreamRow>> {
   const columns: Array<ColumnDef<StreamRow>> = [
     {
       id: 'title',
@@ -105,7 +113,15 @@ function streamColumns(hideHost: boolean): Array<ColumnDef<StreamRow>> {
       id: 'host',
       header: 'Host',
       enableSorting: false,
-      cell: ({ row }) => <PersonLink person={row.original.host} />,
+      cell: ({ row }) => {
+        const paused = hosting.get(row.original.host.id)
+        return (
+          <span className="flex flex-col items-start gap-1">
+            <PersonLink person={row.original.host} />
+            {paused && <HostingBadge appealState={paused.appealState} />}
+          </span>
+        )
+      },
     },
     {
       id: 'status',

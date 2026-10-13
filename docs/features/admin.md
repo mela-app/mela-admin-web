@@ -273,9 +273,10 @@ as well.
 
 ### Hosting restrictions (docs/features/hosting-restrictions.md)
 
-Pausing a host's streaming because of a live - from the live's page
-(**Pause hosting**, and its **Hosting restriction** tab with the appeal) or
-a live's heading on the Live chat page - with the team's own reasons.
+Pausing a host's streaming because of a live - from **Live chat**, while
+reading their chat (each live's heading, and the Host panel beside it), or
+from the live's page (Host card, **Hosting** tab with the appeal) - with
+the team's own reasons.
 The **Hosting restrictions** page (under Safety; the sidebar counts
 appeals waiting) lists the appeals waiting, those in force and those ended,
 and keeps the reasons. Permissions: `VIEW_HOSTING_RESTRICTIONS`,

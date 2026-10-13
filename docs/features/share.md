@@ -175,6 +175,43 @@
   regardless of how the viewer got there, so a leaked link can't bypass
   them (plan §6.12).
 
+### Early access: getting Mela during the closed test (2026-10)
+
+While Mela is a Google Play **closed test**, a friend who opens a shared
+link (most often from TikTok) can't just install it - they must join the
+testers' Google Group and opt in first. With `ANDROID_TESTER_GROUP_URL`
+set (production: `https://groups.google.com/g/mela-tester`), an Android
+phone without Mela lands on **`/get-mela?open=live/<id>`** (or
+`profile/<id>`) - `GetMelaController`:
+
+1. **Join the Mela testers** - the Google Group (same Google account as Play).
+2. **Become a tester** - Play's opt-in page,
+   `https://play.google.com/apps/testing/<ANDROID_APP_PACKAGE_NAME>`
+   (`ANDROID_TESTER_OPT_IN_URL` overrides it).
+3. **Install Mela** - the Play listing.
+4. **Open the live / profile in Mela** - an intent link back to what was
+   shared; not installed yet, it comes back to this page.
+
+Steps tapped are ticked (this phone's `localStorage`). An iPhone is told
+the app is Android-only for now, with the live in the browser.
+
+**TikTok's (and other apps') browsers** can't open apps or sign in to
+Google, which is why "Open in Mela" used to do nothing there.
+`inAppBrowser()` (`share-page.ts`; the web player's `detectDevice().inApp`)
+spots TikTok, Instagram, Facebook, Snapchat, Telegram and Android WebViews:
+there, "Open in Mela" goes straight to `/get-mela`, which first says
+**⋯ → Open in browser**, with an **Open in Chrome** button and **Copy link**.
+
+Where it's wired: the live page's "Open in Mela" (an intent whose fallback
+is `/get-mela`, plus "New to Mela? Get it here"), the web player's
+`androidInstallUrl`, and the profile page's intent and "Get Mela for
+Android". The in-app update link (`store-link.ts`) still goes to the store -
+testers already have Mela.
+
+**Once Mela is public**, blank `ANDROID_TESTER_GROUP_URL`: every link goes
+to the Play listing again and `/get-mela` redirects there - no app release
+needed. The proxy must send `/get-mela` to the API, like `/live/*`.
+
 ## How to add to this feature
 
 - **Share attribution/analytics** (`?ref=`): deferred (plan §6.12) - would

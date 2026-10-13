@@ -19,10 +19,12 @@ export type AdminPermission =
   | 'MANAGE_APP_RELEASES'
   | 'VIEW_REPORTS'
   | 'MANAGE_REPORTS'
+  | 'VIEW_HOSTING_RESTRICTIONS'
+  | 'MANAGE_HOSTING_RESTRICTIONS'
 export type UserStatus = 'ACTIVE' | 'SUSPENDED'
 export type SessionPlatform = 'ANDROID' | 'IOS' | 'WEB' | 'UNKNOWN'
 export type StreamStatus = 'SCHEDULED' | 'LIVE' | 'ENDED' | 'LOCKED'
-export type StreamEndReason = 'HOST_ENDED' | 'HOST_DISCONNECTED' | 'REPLACED' | 'LOCKED'
+export type StreamEndReason = 'HOST_ENDED' | 'HOST_DISCONNECTED' | 'REPLACED' | 'LOCKED' | 'HOST_RESTRICTED'
 export type StreamLayout = 'FULL' | 'FIT' | 'SPLIT' | 'FLOATING' | 'MINIMAL'
 export type VideoProviderKind = 'AGORA' | 'LIVEKIT'
 export type ChatModerationStatus = 'VISIBLE' | 'HIDDEN' | 'DELETED'
@@ -35,6 +37,7 @@ export type ModeratorCapability =
   | 'REMOVE_GUESTS'
   | 'FORCE_MUTE_GUESTS'
   | 'ARRANGE_GUESTS'
+  | 'EDIT_BOARD'
 export type BannedPhraseSeverity = 'REJECT' | 'MASK'
 export type AlertScope = 'GLOBAL' | 'STREAM'
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL'
@@ -131,6 +134,8 @@ export interface Overview {
   daily: Array<{ day: string; streams: number; signups: number }>
   // Null for staff who can't see reports.
   reports: { open: number; urgent: number } | null
+  // Null for staff who can't see hosting restrictions.
+  hosting?: { waitingAppeals: number } | null
 }
 
 export interface StreamRow {
@@ -464,4 +469,73 @@ export interface ReportCaseDetail extends ReportCaseRow {
   live: { id: string; title: string; status: StreamStatus } | null
   // Other cases about the same account.
   otherCases: number
+}
+
+// ---- Hosting restrictions (docs/features/hosting-restrictions.md) ----------
+
+// Whose turn it is in the appeal.
+export type HostingAppealState = 'NONE' | 'WAITING_STAFF' | 'WAITING_HOST' | 'KEPT'
+export type HostingRestrictionStatus = 'ACTIVE' | 'LIFTED' | 'EXPIRED'
+export type HostingRestrictionFilter = 'waiting' | 'active' | 'ended' | 'all'
+
+export interface HostingReason {
+  id: string
+  title: string
+  message: string
+  archived: boolean
+  createdAt: string
+  updatedAt: string
+  createdBy: { id: string; username: string; displayName: string } | null
+  // How many restrictions used it.
+  used: number
+}
+
+export interface HostingRestrictionRow {
+  id: string
+  title: string
+  message: string
+  // Staff only.
+  note: string | null
+  endsAt: string | null
+  liftedAt: string | null
+  appealState: HostingAppealState
+  keptAt: string | null
+  createdAt: string
+  updatedAt: string
+  status: HostingRestrictionStatus
+  messageCount: number
+  // When the host may write again; null: the team's turn.
+  hostCanWriteFrom: string | null
+  user: Person
+  stream: { id: string; title: string; startedAt: string; status: StreamStatus } | null
+  createdBy: Person | null
+  liftedBy: Person | null
+}
+
+export interface HostingRestrictionMessage {
+  id: string
+  fromStaff: boolean
+  text: string
+  imageUrls: string[]
+  createdAt: string
+  author: Person | null
+}
+
+export interface HostingRestrictionDetail extends HostingRestrictionRow {
+  reason: { id: string; title: string } | null
+  messages: HostingRestrictionMessage[]
+  // The host's other restrictions, newest first.
+  history: Array<{
+    id: string
+    title: string
+    createdAt: string
+    liftedAt: string | null
+    endsAt: string | null
+    streamId: string | null
+    status: HostingRestrictionStatus
+  }>
+}
+
+export interface HostingRestrictionPage extends Page<HostingRestrictionRow> {
+  counts: { waiting: number; active: number }
 }

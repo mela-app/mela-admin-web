@@ -1,3 +1,4 @@
+import { liveName } from '../../lib/live-name'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { ArrowRight, Radio } from 'lucide-react'
 import { DailyBars } from '../../components/DailyBars'
@@ -171,7 +172,7 @@ function LiveNowCard({ data }: { data: Overview | undefined }) {
                   params={{ streamId: live.id }}
                   className="block truncate font-medium text-zinc-900 hover:underline"
                 >
-                  {live.title}
+                  {liveName(live)}
                 </Link>
                 <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-500">
                   <PersonLink person={live.host} compact className="text-xs font-normal text-zinc-600" />

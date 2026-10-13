@@ -1,5 +1,6 @@
+import { liveName } from '../../lib/live-name'
 import { getRouteApi, Link } from '@tanstack/react-router'
-import { Lock, LockOpen, Megaphone, UserRound } from 'lucide-react'
+import { Lock, LockOpen, Megaphone, ShieldOff, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import type { StreamTab } from '../../app/search'
 import { PersonLink } from '../../components/PersonLink'
@@ -17,6 +18,8 @@ import { CAPABILITY_LABELS, END_REASON_LABELS, LAYOUT_LABELS, PROVIDER_LABELS } 
 import { actions, useAdminMutation, useStream } from '../../lib/queries'
 import type { StreamDetail } from '../../lib/types'
 import { ScopedAuditTable } from '../audit/AuditTable'
+import { LiveHostingPanel } from '../hosting/LiveHostingPanel'
+import { RestrictHostDialog } from '../hosting/RestrictHostDialog'
 import { ChatLog } from './ChatLog'
 
 const routeApi = getRouteApi('/_app/streams/$streamId')
@@ -40,7 +43,7 @@ function StreamView({ stream }: { stream: StreamDetail }) {
   const auth = useAuth()
   const search = routeApi.useSearch()
   const navigate = routeApi.useNavigate()
-  const [confirm, setConfirm] = useState<'lock' | 'unlock' | null>(null)
+  const [confirm, setConfirm] = useState<'lock' | 'unlock' | 'restrict' | null>(null)
   const lock = useAdminMutation((reason: string) => actions.lockStream(stream.id, reason), {
     toastErrors: false,
     success: 'Live locked. Everyone watching was told why.',
@@ -55,6 +58,7 @@ function StreamView({ stream }: { stream: StreamDetail }) {
     [
       { value: 'chat', label: 'Chat log', shown: true },
       { value: 'people', label: 'Guests and moderators', shown: true },
+      { value: 'hosting', label: 'Hosting restriction', shown: auth.can('VIEW_HOSTING_RESTRICTIONS') },
       { value: 'activity', label: 'Activity', shown: auth.can('VIEW_AUDIT_LOG') },
     ] satisfies Array<{ value: StreamTab; label: string; shown: boolean }>
   ).filter((each) => each.shown)
@@ -69,16 +73,16 @@ function StreamView({ stream }: { stream: StreamDetail }) {
               Lives
             </Link>
             <span className="mx-1.5 text-zinc-300">/</span>
-            <span className="text-zinc-700">{stream.title}</span>
+            <span className="text-zinc-700">{liveName(stream)}</span>
           </>
         }
-        title={stream.title}
+        title={liveName(stream)}
         meta={
           <>
             <StreamStatusBadge status={stream.status} />
             {stream.paused && live && <Badge tone="neutral">Paused by host</Badge>}
             <span className="text-[13px] text-zinc-500">
-              {stream.category ?? 'No category'} · started {formatDateTime(stream.startedAt)}
+              {stream.category ? `${stream.category} · ` : ''}started {formatDateTime(stream.startedAt)}
             </span>
           </>
         }
@@ -97,6 +101,11 @@ function StreamView({ stream }: { stream: StreamDetail }) {
             {live && canManage && (
               <Button variant="danger" icon={<Lock />} onClick={() => setConfirm('lock')}>
                 Lock live
+              </Button>
+            )}
+            {auth.can('MANAGE_HOSTING_RESTRICTIONS') && (
+              <Button icon={<ShieldOff />} onClick={() => setConfirm('restrict')}>
+                Pause hosting
               </Button>
             )}
             {stream.status === 'LOCKED' && canManage && (
@@ -141,6 +150,7 @@ function StreamView({ stream }: { stream: StreamDetail }) {
           </div>
           {tab === 'chat' && <ChatLog streamId={stream.id} hostId={stream.host.id} live={live} />}
           {tab === 'people' && <PeoplePanel stream={stream} />}
+          {tab === 'hosting' && <LiveHostingPanel stream={stream} />}
           {tab === 'activity' && (
             <ScopedAuditTable filter={{ streamId: stream.id }} emptyText="Nothing has been recorded for this live yet." />
           )}
@@ -180,6 +190,15 @@ function StreamView({ stream }: { stream: StreamDetail }) {
           maxLength: 300,
         }}
         onConfirm={(reason) => lock.mutateAsync(reason)}
+      />
+      <RestrictHostDialog
+        open={confirm === 'restrict'}
+        onClose={() => {
+          setConfirm(null)
+          if (tab !== 'hosting') void navigate({ search: { tab: 'hosting' }, replace: true })
+        }}
+        host={stream.host}
+        stream={{ id: stream.id, title: stream.title }}
       />
       <ConfirmDialog
         open={confirm === 'unlock'}

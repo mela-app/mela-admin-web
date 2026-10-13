@@ -47,7 +47,7 @@ export function StreamsPage() {
             className="w-full sm:w-96"
             value={search.q}
             onChange={(q) => update({ q })}
-            placeholder="Search title, category, host or ID…"
+            placeholder="Search host, title or ID…"
             label="Search lives"
           />
           <div className="flex items-center gap-1.5">

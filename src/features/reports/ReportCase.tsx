@@ -265,8 +265,8 @@ function Reported({ found }: { found: ReportCaseDetail }) {
       return (
         <DescriptionList
           items={[
-            { label: 'Title', value: snapshot.title ?? 'Untitled' },
-            { label: 'Category', value: snapshot.category ?? 'None' },
+            { label: 'Title', value: snapshot.title || 'None', hidden: !snapshot.title },
+            { label: 'Category', value: snapshot.category ?? 'None', hidden: !snapshot.category },
             { label: 'Started', value: formatDateTime(snapshot.startedAt ?? null), hidden: !snapshot.startedAt },
             {
               label: 'Now',

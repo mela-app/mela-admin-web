@@ -85,8 +85,12 @@ Google Play has (`StoreUpdater`: `PlayStoreUpdater` on Android, through the
   update. From Google Play, Play's own full-screen update (*immediate*) opens
   by itself - it downloads, installs and restarts Mela; turned down, the
   screen stays with **Update now** to try again. An update left half-way is
-  resumed when the app comes back. If Play hasn't got it for this phone yet,
-  the screen says it's on its way. Pressing back leaves the app.
+  resumed when the app comes back. Pressing back leaves the app.
+  **Nobody is locked out of an update they can't get**: installed from Play,
+  with Play having no newer version for this phone - still rolling out, or a
+  version typed wrong in the console - the app stays usable and Settings says
+  it's on its way (`mustUpdateNow`); the check after Play has it blocks. Only
+  an app not from Play (no way to ask Play) is blocked on the server's word.
 - **Never during a live**: nothing is shown while the phone is watching,
   setting up, hosting or on a stage. A required update waits until the live
   is left.
@@ -123,17 +127,41 @@ changed) and `app.release_withdrawn` - target `APP_RELEASE` ("Android 1.2.0").
 
 ### Releasing a new version
 
-1. Bump `version:` in mela-mobile's `pubspec.yaml` - a newer version and, as
-   Play requires, a higher build number (`1.3.0+14`).
-2. Build the app bundle and upload it to Google Play (any track: internal,
-   closed testing, production).
-3. **Once Play has it live on that track**, in the console: **App updates →
-   Publish an update** with the same version and one change per line. Tick
-   **Required update** only for fixes everyone must have.
+The industry's usual way (Semantic Versioning, a build number that only goes
+up, staged rollouts) - see mela-mobile's README, "A release build":
 
-In-app updates only work for an app installed from Google Play (testers
-too, from the testing track's link). Publishing a little early does no harm:
-a phone Play hasn't got it for yet is simply not asked.
+1. Raise `version:` in mela-mobile's `pubspec.yaml`: a new patch for fixes
+   (1.2.0 → 1.2.1), a new minor for features (1.2.1 → 1.3.0). **Every release
+   needs a new version** - two builds sharing one look the same to the
+   update check (1.0.1+10 and 1.0.1+11 are both "1.0.1").
+2. Commit, then `./tool/release.ps1` (or `tool/release.sh`): it builds the
+   app bundle with the **build number set automatically** (the count of git
+   commits), refuses a version already released (git tag `v<version>`), and
+   tags the commit.
+3. Upload it to Google Play (internal, closed testing or production) -
+   ideally a **staged rollout**: 10-20% first, more once crash reports look
+   healthy.
+4. **Once Play has it live on that track**, in the console: **App updates →
+   Publish an update** with exactly that version and one change per line.
+   Tick **Required update** only for fixes everyone must have.
+
+In-app updates only work for an app installed from Google Play (testers too,
+from the testing track's link).
+
+Apps from before versions were compared send only their build: each release
+published since gets a build above theirs in the answer (`withLegacyBuilds`),
+so those apps are still offered - or required - the update.
+
+### Watching a release
+
+Release builds send crash reports to Firebase Crashlytics (`CrashReports`,
+`lib/core/crash_reports.dart`): what broke and where, the app version, the
+phone model and Android version - nothing about the account. Debug builds
+and builds without `google-services.json` send nothing. The Privacy Policy
+says so. After each step of a rollout, look at **Firebase → Crashlytics**
+(crash-free users per version) and Play Console's **Android vitals**; halt the
+rollout in Play if a version crashes more than the one before. Crashlytics
+must be enabled once in the Firebase console (Build → Crashlytics → Enable).
 
 ## How to add to this feature
 

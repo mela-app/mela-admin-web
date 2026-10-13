@@ -1,3 +1,4 @@
+import { liveName } from '../../lib/live-name'
 import { getRouteApi, Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { CircleAlert, Megaphone, Send, TriangleAlert } from 'lucide-react'
@@ -149,7 +150,7 @@ function Composer({ initialStreamId }: { initialStreamId?: string }) {
                 <option value="">{lives.isPending ? 'Loading lives…' : 'Choose a live'}</option>
                 {liveOptions.map((live) => (
                   <option key={live.id} value={live.id}>
-                    {live.title} · @{live.host.username}
+                    {liveName(live)} · @{live.host.username}
                   </option>
                 ))}
                 {streamId && !selectedLive && lives.data && <option value={streamId}>A live that has ended</option>}
@@ -279,10 +280,10 @@ function alertColumns(canOpenLives: boolean): Array<ColumnDef<AdminAlert>> {
             params={{ streamId: row.original.stream.id }}
             className="block max-w-56 truncate font-medium text-zinc-900 hover:underline"
           >
-            {row.original.stream.title}
+            {liveName(row.original.stream)}
           </Link>
         ) : row.original.stream ? (
-          <span className="block max-w-56 truncate font-medium text-zinc-900">{row.original.stream.title}</span>
+          <span className="block max-w-56 truncate font-medium text-zinc-900">{liveName(row.original.stream)}</span>
         ) : (
           <span className="text-zinc-500">A deleted live</span>
         ),

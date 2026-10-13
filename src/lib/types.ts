@@ -539,3 +539,14 @@ export interface HostingRestrictionDetail extends HostingRestrictionRow {
 export interface HostingRestrictionPage extends Page<HostingRestrictionRow> {
   counts: { waiting: number; active: number }
 }
+
+// A host's hosting restriction in force, for a badge in a list.
+export interface HostingInForce {
+  id: string
+  userId: string
+  streamId: string | null
+  title: string
+  endsAt: string | null
+  appealState: HostingAppealState
+  createdAt: string
+}

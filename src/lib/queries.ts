@@ -1,4 +1,5 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { api } from './api'
 import { dayBoundary } from './format'
 import { useToast } from './toast-context'
@@ -20,6 +21,7 @@ import type {
   ChatModerationStatus,
   DataOverview,
   DeviceSession,
+  HostingInForce,
   HostingReason,
   HostingRestrictionDetail,
   HostingRestrictionFilter,
@@ -337,20 +339,40 @@ export function useReport(caseId: string) {
 
 /** Hosting restrictions - for one live, or a list filtered by state; the waiting ones keep themselves current. */
 export function useHostingRestrictions(
-  filter: { state?: HostingRestrictionFilter; streamId?: string; userId?: string },
+  filter: { state?: HostingRestrictionFilter; streamId?: string; userId?: string; q?: string },
   paging_: { page?: number; pageSize?: number } = {},
+  enabled = true,
 ) {
   const state = filter.state ?? 'all'
   return useQuery({
-    queryKey: ['hosting-restrictions', state, filter.streamId, filter.userId, paging(paging_)],
+    queryKey: ['hosting-restrictions', state, filter.streamId, filter.userId, filter.q, paging(paging_)],
     queryFn: ({ signal }) =>
       api<HostingRestrictionPage>('/admin/hosting-restrictions', {
         signal,
-        query: { state, streamId: filter.streamId, userId: filter.userId, ...paging(paging_) },
+        query: { state, streamId: filter.streamId, userId: filter.userId, q: filter.q, ...paging(paging_) },
       }),
+    enabled,
     placeholderData: keepPreviousData,
     refetchInterval: state === 'waiting' || filter.streamId ? 30_000 : false,
   })
+}
+
+/**
+ * Which of [userIds] can't host right now, and why - for the badges in host
+ * lists. Nothing is asked of staff who can't see hosting restrictions.
+ */
+export function useHostingInForce(userIds: string[], enabled: boolean) {
+  const ids = [...new Set(userIds)].sort().slice(0, 100)
+  const query = useQuery({
+    queryKey: ['hosting-in-force', ids],
+    queryFn: ({ signal }) =>
+      api<HostingInForce[]>('/admin/hosting-restrictions/in-force', { signal, query: { userIds: ids.join(',') } }),
+    enabled: enabled && ids.length > 0,
+    placeholderData: keepPreviousData,
+    refetchInterval: 60_000,
+  })
+  const data = query.data
+  return useMemo(() => new Map((data ?? []).map((row) => [row.userId, row])), [data])
 }
 
 /** One restriction: what the host was told, the appeal conversation, and their others. */

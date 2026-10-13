@@ -3,26 +3,27 @@ import { useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { EmptyState, ErrorState, Skeleton } from '../../components/ui/feedback'
 import { useAuth } from '../../lib/auth-context'
-import { useHostingRestrictions } from '../../lib/queries'
+import { useHostingInForce, useHostingRestrictions } from '../../lib/queries'
 import type { Person } from '../../lib/types'
 import { RestrictHostDialog } from './RestrictHostDialog'
 import { RestrictionView } from './RestrictionView'
 
 interface LiveHostingPanelProps {
-  stream: { id: string; title: string; host: Person }
+  stream: { id: string; title: string; startedAt: string; host: Person }
 }
 
 /**
- * A live's hosting restrictions (docs/features/hosting-restrictions.md): the
- * ones made because of it, each with the host's appeal - or the way to pause
- * the host's hosting because of it.
+ * A live's Hosting tab (docs/features/hosting-restrictions.md): the
+ * restrictions made because of it, each with the host's appeal - or, when
+ * there are none, the way to pause the host's hosting because of it.
  */
 export function LiveHostingPanel({ stream }: LiveHostingPanelProps) {
   const auth = useAuth()
   const [restricting, setRestricting] = useState(false)
   const restrictions = useHostingRestrictions({ streamId: stream.id })
+  const inForce = useHostingInForce([stream.host.id], true).get(stream.host.id)
   const rows = restrictions.data?.items ?? []
-  const canManage = auth.can('MANAGE_HOSTING_RESTRICTIONS')
+  const canPause = auth.can('MANAGE_HOSTING_RESTRICTIONS') && !inForce
 
   return (
     <div>
@@ -38,18 +39,22 @@ export function LiveHostingPanel({ stream }: LiveHostingPanelProps) {
       {restrictions.data && rows.length === 0 && (
         <EmptyState
           icon={<ShieldOff />}
-          title="No hosting restriction"
-          description="Nobody's hosting was paused because of this live. Pause it when the host broke the rules - they can still watch and chat, and may appeal."
+          title="No hosting restriction for this live"
+          description={
+            inForce
+              ? "The host's hosting is already paused, because of another live."
+              : 'When the host broke the rules here, pause their hosting: they stop streaming, still watch and chat, and may appeal. Reading the chat first? Use Inspect in Live chat.'
+          }
           action={
-            canManage ? (
+            canPause ? (
               <Button variant="danger" icon={<ShieldOff />} onClick={() => setRestricting(true)}>
-                Pause host's hosting
+                Pause hosting…
               </Button>
             ) : undefined
           }
         />
       )}
-      <div className="divide-y divide-zinc-200">
+      <div className="divide-y-8 divide-zinc-100">
         {rows.map((row) => (
           <RestrictionView key={row.id} restrictionId={row.id} showLive={false} />
         ))}
@@ -59,7 +64,7 @@ export function LiveHostingPanel({ stream }: LiveHostingPanelProps) {
         open={restricting}
         onClose={() => setRestricting(false)}
         host={stream.host}
-        stream={{ id: stream.id, title: stream.title }}
+        lives={[{ id: stream.id, title: stream.title, startedAt: stream.startedAt }]}
       />
     </div>
   )

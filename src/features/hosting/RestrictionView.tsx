@@ -1,14 +1,15 @@
 import { Link } from '@tanstack/react-router'
-import { CircleCheck, HelpCircle, Lock, Radio } from 'lucide-react'
+import { CircleCheck, Clock, HelpCircle, Lock, Radio, ShieldOff, UserRound } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { PersonLink } from '../../components/PersonLink'
 import { Badge, type BadgeTone } from '../../components/ui/Badge'
 import { buttonClasses } from '../../components/ui/button-styles'
 import { Button } from '../../components/ui/Button'
 import { DescriptionList } from '../../components/ui/Card'
+import { ConfirmDialog } from '../../components/ui/Dialog'
 import { Callout, ErrorState, Skeleton } from '../../components/ui/feedback'
-import { Field, Select, Textarea } from '../../components/ui/forms'
-import { RelativeTime } from '../../components/ui/misc'
+import { Select, Textarea } from '../../components/ui/forms'
+import { Avatar, RelativeTime } from '../../components/ui/misc'
 import { useAuth } from '../../lib/auth-context'
 import { cn } from '../../lib/cn'
 import { formatDateTime, formatPrecise } from '../../lib/format'
@@ -43,9 +44,9 @@ export function RestrictionBadges({ status, appealState }: { status: HostingRest
 }
 
 /**
- * One hosting restriction (docs/features/hosting-restrictions.md): what the
- * host was told, the appeal conversation with their pictures, and - for
- * staff who manage them - answering, lifting and changing how long.
+ * One hosting restriction, as a case (docs/features/hosting-restrictions.md):
+ * who and why at the top with what can be done, the appeal as a timeline,
+ * and the answer box at the bottom for staff who manage them.
  */
 export function RestrictionView({ restrictionId, showLive = true }: { restrictionId: string; showLive?: boolean }) {
   const restriction = useHostingRestriction(restrictionId)
@@ -68,93 +69,109 @@ function Restriction({ found, showLive }: { found: HostingRestrictionDetail; sho
   const canManage = auth.can('MANAGE_HOSTING_RESTRICTIONS')
 
   return (
-    <div>
+    <article className="flex min-h-full flex-col">
       <header className="border-b border-zinc-200 px-5 py-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <RestrictionBadges status={found.status} appealState={found.appealState} />
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <PersonLink person={found.user} />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <RestrictionBadges status={found.status} appealState={found.appealState} />
+          </div>
         </div>
-        <h2 className="mt-2 text-base font-semibold break-words text-zinc-900">{found.title}</h2>
-        <p className="mt-0.5 text-[13px] text-zinc-500">
-          Since {formatDateTime(found.createdAt)} ·{' '}
-          {found.liftedAt
-            ? `lifted ${formatDateTime(found.liftedAt)}`
-            : found.endsAt
-              ? `${active ? 'until' : 'ran out'} ${formatDateTime(found.endsAt)}`
-              : 'until the team lifts it'}
+        <h2 className="mt-3 text-base font-semibold break-words text-zinc-900">{found.title}</h2>
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-zinc-500">
+          <Clock className="size-3.5" aria-hidden />
+          {period(found)}
         </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {showLive && found.stream && auth.can('VIEW_LIVES') && (
+            <Link
+              to="/streams/$streamId"
+              params={{ streamId: found.stream.id }}
+              search={{ tab: 'hosting' }}
+              className={buttonClasses('secondary', 'sm')}
+            >
+              <Radio /> Open the live
+            </Link>
+          )}
+          {auth.can('VIEW_USERS') && (
+            <Link to="/users/$userId" params={{ userId: found.user.id }} className={buttonClasses('secondary', 'sm')}>
+              <UserRound /> Account
+            </Link>
+          )}
+          {active && canManage && <ChangeDuration key={`${found.id}:${found.endsAt}`} found={found} />}
+        </div>
       </header>
 
-      <div className="space-y-6 px-5 py-4">
-        <Section title="Host">
-          <PersonLink person={found.user} />
-        </Section>
-
+      <div className="flex-1 space-y-6 px-5 py-4">
         <Section title="What the host was told">
           <figure className="rounded-lg border border-zinc-200 bg-zinc-50 p-3.5">
             <p className="text-sm font-medium text-zinc-900">{found.title}</p>
             <p className="mt-1 text-sm break-words whitespace-pre-wrap text-zinc-700">{found.message}</p>
           </figure>
+        </Section>
+
+        <Section title="Details">
           <DescriptionList
+            columns={2}
             items={[
               {
                 label: 'Live',
                 value: found.stream ? (
                   auth.can('VIEW_LIVES') ? (
-                    <Link to="/streams/$streamId" params={{ streamId: found.stream.id }} search={{ tab: 'hosting' }} className="font-medium text-brand-700 hover:underline">
-                      {liveName(found.stream)}
+                    <Link
+                      to="/streams/$streamId"
+                      params={{ streamId: found.stream.id }}
+                      search={{ tab: 'hosting' }}
+                      className="font-medium text-brand-700 hover:underline"
+                    >
+                      {liveName({ ...found.stream, host: found.user })}
                     </Link>
                   ) : (
-                    liveName(found.stream)
+                    liveName({ ...found.stream, host: found.user })
                   )
                 ) : (
                   'Not about one live'
                 ),
-                hidden: !showLive,
               },
               { label: 'Saved reason', value: found.reason?.title ?? 'Written for this one' },
-              { label: 'By', value: found.createdBy ? `@${found.createdBy.username}` : 'A deleted account' },
-              { label: 'Lifted by', value: found.liftedBy ? `@${found.liftedBy.username}` : '—', hidden: !found.liftedAt },
-              { label: 'Team note', value: found.note ?? 'None' },
+              { label: 'Paused by', value: found.createdBy ? `@${found.createdBy.username}` : 'A deleted account' },
+              { label: 'Team note', value: found.note ?? <span className="text-zinc-400">None</span> },
             ]}
           />
         </Section>
 
-        <Section
-          title="Appeal"
-          hint={
-            active
-              ? found.appealState === 'WAITING_STAFF'
-                ? "The host is waiting for the team's answer."
-                : found.appealState === 'KEPT' && found.hostCanWriteFrom
-                  ? `Kept. The host can write again ${formatDateTime(found.hostCanWriteFrom)}.`
-                  : found.appealState === 'WAITING_HOST'
-                    ? 'The team asked for more; waiting for the host.'
-                    : "The host hasn't written."
-              : undefined
-          }
-        >
-          {found.messages.length === 0 ? (
-            <p className="text-[13px] text-zinc-500">No messages.</p>
-          ) : (
-            <ol className="space-y-2.5">
-              {found.messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
-              ))}
-            </ol>
-          )}
+        <Section title="Appeal" hint={turnHint(found)}>
+          <ol className="space-y-3">
+            <TimelineEvent icon={<ShieldOff />} at={found.createdAt}>
+              Hosting paused{found.createdBy ? ` by @${found.createdBy.username}` : ''}
+            </TimelineEvent>
+            {found.messages.map((message) => (
+              <MessageItem key={message.id} message={message} host={found.user} />
+            ))}
+            {found.liftedAt && (
+              <TimelineEvent icon={<CircleCheck />} at={found.liftedAt}>
+                Lifted{found.liftedBy ? ` by @${found.liftedBy.username}` : ''} - they can host again
+              </TimelineEvent>
+            )}
+            {found.status === 'EXPIRED' && found.endsAt && (
+              <TimelineEvent icon={<Clock />} at={found.endsAt}>
+                Ran out - they can host again
+              </TimelineEvent>
+            )}
+          </ol>
         </Section>
 
-        {active && canManage && <Answer key={`${found.id}:${found.messages.length}`} found={found} />}
-        {active && canManage && <ChangeDuration key={`${found.id}:duration`} found={found} />}
-        {active && !canManage && <Callout>Staff who manage hosting restrictions answer the host and lift it.</Callout>}
-
         {found.history.length > 0 && (
-          <Section title="Their other restrictions">
-            <ul className="space-y-1.5 text-[13px]">
+          <Section title={`Their other restrictions (${found.history.length})`}>
+            <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 text-[13px]">
               {found.history.map((other) => (
-                <li key={other.id} className="flex flex-wrap items-center gap-2">
+                <li key={other.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
                   <Badge tone={STATUS_TONES[other.status]}>{HOSTING_STATUS_LABELS[other.status]}</Badge>
-                  <Link to="/hosting" search={{ tab: 'ended', restriction: other.id }} className="text-zinc-800 hover:underline">
+                  <Link
+                    to="/hosting"
+                    search={{ tab: other.status === 'ACTIVE' ? 'active' : 'ended', restriction: other.id }}
+                    className="min-w-0 flex-1 truncate text-zinc-800 hover:underline"
+                  >
                     {other.title}
                   </Link>
                   <RelativeTime value={other.createdAt} className="text-xs text-zinc-500" />
@@ -163,62 +180,107 @@ function Restriction({ found, showLive }: { found: HostingRestrictionDetail; sho
             </ul>
           </Section>
         )}
-
-        {showLive && found.stream && auth.can('VIEW_LIVES') && (
-          <Link
-            to="/streams/$streamId"
-            params={{ streamId: found.stream.id }}
-            search={{ tab: 'hosting' }}
-            className={buttonClasses('secondary', 'sm')}
-          >
-            <Radio /> Open live
-          </Link>
-        )}
       </div>
-    </div>
+
+      {active && canManage && <Answer key={`${found.id}:${found.messages.length}`} found={found} />}
+      {active && !canManage && (
+        <div className="border-t border-zinc-200 px-5 py-3">
+          <Callout>Staff who manage hosting restrictions answer the host and lift it.</Callout>
+        </div>
+      )}
+    </article>
   )
 }
 
-function MessageBubble({ message }: { message: HostingRestrictionMessage }) {
+function period(found: HostingRestrictionDetail): string {
+  const since = `Since ${formatDateTime(found.createdAt)}`
+  if (found.liftedAt) return `${since} · lifted ${formatDateTime(found.liftedAt)}`
+  if (!found.endsAt) return `${since} · until lifted`
+  return `${since} · ${found.status === 'EXPIRED' ? 'ran out' : 'until'} ${formatDateTime(found.endsAt)}`
+}
+
+function turnHint(found: HostingRestrictionDetail): string | undefined {
+  if (found.status !== 'ACTIVE') return undefined
+  switch (found.appealState) {
+    case 'WAITING_STAFF':
+      return 'The host is waiting for your answer.'
+    case 'WAITING_HOST':
+      return 'You asked for more - waiting for the host.'
+    case 'KEPT':
+      return found.hostCanWriteFrom
+        ? `Kept. The host can write again ${formatDateTime(found.hostCanWriteFrom)}.`
+        : 'Kept.'
+    case 'NONE':
+      return "The host hasn't written."
+  }
+}
+
+function TimelineEvent({ icon, at, children }: { icon: ReactNode; at: string; children: ReactNode }) {
   return (
-    <li
-      className={cn(
-        'rounded-lg border px-3.5 py-2.5',
-        message.fromStaff ? 'ml-8 border-brand-100 bg-brand-50/60' : 'mr-8 border-zinc-200 bg-white',
-      )}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
-        <span className="font-medium text-zinc-800">
-          {message.fromStaff
-            ? `Mela team${message.author ? ` (@${message.author.username})` : ''}`
-            : 'Host'}
-        </span>
-        <time dateTime={message.createdAt} title={formatPrecise(message.createdAt)}>
-          {formatDateTime(message.createdAt)}
-        </time>
-      </div>
-      <p className="mt-1 text-[13px] break-words whitespace-pre-wrap text-zinc-800">{message.text}</p>
-      {message.imageUrls.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2">
-          {message.imageUrls.filter(isWebUrl).map((url) => (
-            <a key={url} href={url} target="_blank" rel="noreferrer noopener">
-              <img
-                src={url}
-                alt="A picture the host sent"
-                referrerPolicy="no-referrer"
-                className="h-28 w-28 rounded-md border border-zinc-200 object-cover"
-              />
-            </a>
-          ))}
-        </div>
-      )}
+    <li className="flex items-center gap-2.5 text-xs text-zinc-500">
+      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-zinc-100 text-zinc-500 [&_svg]:size-3.5">{icon}</span>
+      <span className="font-medium text-zinc-700">{children}</span>
+      <time dateTime={at} title={formatPrecise(at)} className="ml-auto shrink-0">
+        {formatDateTime(at)}
+      </time>
     </li>
   )
 }
 
+function MessageItem({
+  message,
+  host,
+}: {
+  message: HostingRestrictionMessage
+  host: { displayName: string; avatarUrl?: string | null }
+}) {
+  const staff = message.fromStaff
+  return (
+    <li className="flex gap-2.5">
+      {staff ? (
+        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-brand-600 text-[11px] font-bold text-white">M</span>
+      ) : (
+        <Avatar name={host.displayName} url={host.avatarUrl} size="sm" />
+      )}
+      <div
+        className={cn(
+          'min-w-0 flex-1 rounded-lg border px-3.5 py-2.5',
+          staff ? 'border-brand-100 bg-brand-50/60' : 'border-zinc-200 bg-white',
+        )}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
+          <span className="font-medium text-zinc-800">
+            {staff ? `Mela team${message.author ? ` · @${message.author.username}` : ''}` : `${host.displayName} (host)`}
+          </span>
+          <time dateTime={message.createdAt} title={formatPrecise(message.createdAt)}>
+            {formatDateTime(message.createdAt)}
+          </time>
+        </div>
+        <p className="mt-1 text-[13px] break-words whitespace-pre-wrap text-zinc-800">{message.text}</p>
+        {message.imageUrls.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {message.imageUrls.filter(isWebUrl).map((url) => (
+              <a key={url} href={url} target="_blank" rel="noreferrer noopener">
+                <img
+                  src={url}
+                  alt="A picture the host sent"
+                  referrerPolicy="no-referrer"
+                  className="h-28 w-28 rounded-md border border-zinc-200 object-cover hover:opacity-90"
+                />
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </li>
+  )
+}
+
+/** The answer box, at the bottom: keep it, ask for more, or lift it. */
 function Answer({ found }: { found: HostingRestrictionDetail }) {
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [confirmLift, setConfirmLift] = useState(false)
   const answer = useAdminMutation(
     (decision: 'KEEP' | 'ASK') => actions.answerAppeal(found.id, decision, text.trim()),
     {
@@ -231,51 +293,65 @@ function Answer({ found }: { found: HostingRestrictionDetail }) {
     toastErrors: false,
     success: 'Lifted. The host can go live again and was told.',
   })
-  const pending = answer.isPending ? answer.variables : lift.isPending ? 'LIFT' : null
+  const pending = answer.isPending ? answer.variables : null
 
-  async function run(action: 'KEEP' | 'ASK' | 'LIFT') {
-    if (action !== 'LIFT' && text.trim().length === 0) return setError('Write your answer to the host first.')
+  async function run(decision: 'KEEP' | 'ASK') {
+    if (text.trim().length === 0) return setError('Write your answer to the host first.')
     setError(null)
     try {
-      if (action === 'LIFT') await lift.mutateAsync(undefined)
-      else await answer.mutateAsync(action)
+      await answer.mutateAsync(decision)
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Something went wrong. Try again.')
     }
   }
 
   return (
-    <Section title="Answer the host" hint="The host sees your words as from the Mela team - not your name.">
-      <div className="space-y-3">
-        <Field label="Your message">
-          <Textarea
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            maxLength={1000}
-            rows={3}
-            placeholder="e.g. Thanks for explaining. Please keep your live respectful from now on."
-          />
-        </Field>
-        {error && <Callout tone="danger">{error}</Callout>}
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button icon={<HelpCircle />} loading={pending === 'ASK'} disabled={pending !== null} onClick={() => void run('ASK')}>
-            Ask for more
-          </Button>
-          <Button icon={<Lock />} loading={pending === 'KEEP'} disabled={pending !== null} onClick={() => void run('KEEP')}>
-            Keep restriction
-          </Button>
-          <Button
-            variant="primary"
-            icon={<CircleCheck />}
-            loading={pending === 'LIFT'}
-            disabled={pending !== null}
-            onClick={() => void run('LIFT')}
-          >
-            Lift - they can host again
-          </Button>
-        </div>
+    <footer className="sticky bottom-0 border-t border-zinc-200 bg-zinc-50/95 px-5 py-4 backdrop-blur">
+      <label htmlFor={`answer-${found.id}`} className="block text-[13px] font-medium text-zinc-800">
+        Your message
+      </label>
+      <p className="text-xs text-zinc-500">The host sees it from “the Mela team” - not your name.</p>
+      <Textarea
+        id={`answer-${found.id}`}
+        className="mt-2 bg-white"
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        maxLength={1000}
+        rows={3}
+        placeholder="e.g. Thanks for explaining. Please keep your live respectful from now on."
+      />
+      {error && <Callout tone="danger" className="mt-2">{error}</Callout>}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button size="sm" icon={<HelpCircle />} loading={pending === 'ASK'} disabled={pending != null} onClick={() => void run('ASK')}>
+          Ask for more
+        </Button>
+        <Button size="sm" icon={<Lock />} loading={pending === 'KEEP'} disabled={pending != null} onClick={() => void run('KEEP')}>
+          Keep restriction
+        </Button>
+        <Button
+          size="sm"
+          variant="primary"
+          className="ml-auto"
+          icon={<CircleCheck />}
+          disabled={pending != null}
+          onClick={() => setConfirmLift(true)}
+        >
+          Lift - they can host again
+        </Button>
       </div>
-    </Section>
+      <ConfirmDialog
+        open={confirmLift}
+        onClose={() => setConfirmLift(false)}
+        title="Lift the restriction?"
+        description={
+          text.trim()
+            ? 'They can go live again at once, and get your message with the notification.'
+            : 'They can go live again at once and are told so. You can still write a message above first.'
+        }
+        confirmLabel="Lift restriction"
+        onConfirm={() => lift.mutateAsync(undefined)}
+      />
+    </footer>
   )
 }
 
@@ -289,26 +365,30 @@ function ChangeDuration({ found }: { found: HostingRestrictionDetail }) {
     { success: 'Changed. The host sees the new end.' },
   )
   return (
-    <Section title="How long" hint="Counted from now.">
-      <div className="flex flex-wrap items-center gap-2">
-        <Select aria-label="How long from now" className="w-full sm:w-56" value={duration} onChange={(event) => setDuration(event.target.value)}>
-          <option value="">Pick…</option>
-          {DURATIONS.map((each) => (
-            <option key={each.value} value={each.value}>
-              {each.label}
-            </option>
-          ))}
-        </Select>
+    <span className="inline-flex items-center gap-1.5">
+      <Select
+        aria-label="Change how long, from now"
+        className="h-8 w-44 text-[13px]"
+        value={duration}
+        onChange={(event) => setDuration(event.target.value)}
+      >
+        <option value="">Change how long…</option>
+        {DURATIONS.map((each) => (
+          <option key={each.value} value={each.value}>
+            {each.hours ? `${each.label} from now` : each.label}
+          </option>
+        ))}
+      </Select>
+      {duration && (
         <Button
           size="sm"
-          disabled={!duration}
           loading={change.isPending}
           onClick={() => change.mutate(DURATIONS.find((each) => each.value === duration)?.hours ?? null)}
         >
-          Change
+          Apply
         </Button>
-      </div>
-    </Section>
+      )}
+    </span>
   )
 }
 
@@ -317,7 +397,7 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
     <section>
       <h3 className="text-xs font-medium tracking-wide text-zinc-500 uppercase">{title}</h3>
       {hint && <p className="mt-1 text-[13px] text-zinc-500">{hint}</p>}
-      <div className="mt-2.5 space-y-3">{children}</div>
+      <div className="mt-2.5">{children}</div>
     </section>
   )
 }

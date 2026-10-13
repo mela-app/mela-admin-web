@@ -107,12 +107,14 @@ describe('a hosting restriction', () => {
     expect(screen.getByText('Write your answer to the host first.')).toBeInTheDocument()
   })
 
-  it('lifts it, a word to the host optional', async () => {
+  it('lifts it once confirmed, a word to the host optional', async () => {
     const user = userEvent.setup()
     const lift = vi.spyOn(actions, 'liftRestriction').mockResolvedValue(restriction({ status: 'LIFTED' }))
     showing(restriction(), ['VIEW_HOSTING_RESTRICTIONS', 'MANAGE_HOSTING_RESTRICTIONS'])
 
     await user.click(screen.getByRole('button', { name: 'Lift - they can host again' }))
+    expect(lift).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Lift restriction' }))
 
     expect(lift).toHaveBeenCalledWith('r1', undefined)
   })

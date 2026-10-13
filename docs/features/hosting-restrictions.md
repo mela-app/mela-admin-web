@@ -21,10 +21,25 @@ with up to 3 pictures.
   restrictions → Reasons**): added, edited, archived (no longer offered) or
   restored. A restriction keeps its own copy of the title and message, so
   editing a reason never changes what a host was already told.
-- **Tied to a live.** A restriction is made from a live (its page, or a
-  live's heading on the Live chat page) and shown on that live's page
-  (**Hosting restriction** tab) with the appeal - the console's
-  **Hosting restrictions** page lists them all.
+- **Tied to a live, paused from where staff read the chat.** The console
+  (2026-10 redesign):
+  - **Live chat** is the workspace: hosts (paused ones badged), the chat
+    live by live with **Pause hosting** on each live's heading, and beside
+    it the **Host** panel - account links, **Hosting** (can go live /
+    paused, with "Answer the appeal" opening the case beside the page, and
+    how many times before) and the lives that day.
+  - The **pause dialog** picks the live it's about (the one opened from,
+    or any that day), the reason, how long, a team note, and previews what
+    the host will read.
+  - A **live's page**: "Inspect in Live chat", a banner while the host is
+    paused, the Host card with the same Hosting status, and the **Hosting**
+    tab with the restrictions about that live and their appeals.
+  - **Lives** list: paused hosts badged.
+  - **Hosting restrictions** page: Appeals waiting / In force / Ended / All
+    (with counts), search by host, each opened as a case - who and why,
+    details, the appeal as a timeline, and the answer box at the bottom
+    (Ask for more, Keep restriction, Lift - confirmed) - plus the
+    **Reasons library**.
 - **How long:** until lifted, 24 hours, 3, 7 or 30 days - changeable later,
   counted from then. One restriction in force per account at a time.
 - **At once:** a live the host is running ends (`StreamEndReason.HOST_RESTRICTED`
@@ -80,7 +95,8 @@ POST   /me/hosting/appeal                  ({text: 1-1000, imageKeys?: up to 3})
 GET    /admin/hosting-reasons[?archived=true]                         [VIEW_HOSTING_RESTRICTIONS]
 POST   /admin/hosting-reasons ({title, message})                      [MANAGE_HOSTING_RESTRICTIONS]
 PATCH  /admin/hosting-reasons/:id ({title?, message?, archived?})     [MANAGE_HOSTING_RESTRICTIONS]
-GET    /admin/hosting-restrictions[?state=waiting|active|ended|all&streamId&userId&page&pageSize]  [VIEW_HOSTING_RESTRICTIONS]
+GET    /admin/hosting-restrictions[?state=waiting|active|ended|all&streamId&userId&q&page&pageSize]  [VIEW_HOSTING_RESTRICTIONS]
+GET    /admin/hosting-restrictions/in-force?userIds=a,b   (up to 100: the one in force on each, for badges)  [VIEW_HOSTING_RESTRICTIONS]
 GET    /admin/hosting-restrictions/:id     (with the conversation and the host's other restrictions)  [VIEW_HOSTING_RESTRICTIONS]
 POST   /admin/hosting-restrictions ({userId, streamId?, reasonId?, title, message, note?, durationHours?: 1-8760|null, saveAsReason?})  [MANAGE_HOSTING_RESTRICTIONS]
 POST   /admin/hosting-restrictions/:id/lift ({reply?})                [MANAGE_HOSTING_RESTRICTIONS]

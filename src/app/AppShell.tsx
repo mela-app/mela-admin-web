@@ -12,6 +12,7 @@ import {
   ScrollText,
   Settings,
   ShieldBan,
+  ShieldOff,
   ShieldUser,
   Smartphone,
   Users,
@@ -38,6 +39,7 @@ type NavTarget =
   | '/users'
   | '/staff'
   | '/app-updates'
+  | '/hosting'
   | '/reports'
   | '/alerts'
   | '/phrases'
@@ -155,6 +157,13 @@ function Sidebar() {
           count: reports?.open,
           urgent: (reports?.urgent ?? 0) > 0,
           needs: 'VIEW_REPORTS',
+        },
+        {
+          to: '/hosting',
+          label: 'Hosting restrictions',
+          icon: ShieldOff,
+          count: overview.data?.hosting?.waitingAppeals,
+          needs: 'VIEW_HOSTING_RESTRICTIONS',
         },
         { to: '/alerts', label: 'Alerts', icon: Megaphone, needs: 'VIEW_ALERTS' },
         { to: '/phrases', label: 'Banned phrases', icon: ShieldBan, needs: 'VIEW_PHRASES' },

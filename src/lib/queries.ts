@@ -20,6 +20,10 @@ import type {
   ChatModerationStatus,
   DataOverview,
   DeviceSession,
+  HostingReason,
+  HostingRestrictionDetail,
+  HostingRestrictionFilter,
+  HostingRestrictionPage,
   HostChat,
   KeepOnReset,
   LiveChatHostPage,
@@ -331,6 +335,46 @@ export function useReport(caseId: string) {
   })
 }
 
+/** Hosting restrictions - for one live, or a list filtered by state; the waiting ones keep themselves current. */
+export function useHostingRestrictions(
+  filter: { state?: HostingRestrictionFilter; streamId?: string; userId?: string },
+  paging_: { page?: number; pageSize?: number } = {},
+) {
+  const state = filter.state ?? 'all'
+  return useQuery({
+    queryKey: ['hosting-restrictions', state, filter.streamId, filter.userId, paging(paging_)],
+    queryFn: ({ signal }) =>
+      api<HostingRestrictionPage>('/admin/hosting-restrictions', {
+        signal,
+        query: { state, streamId: filter.streamId, userId: filter.userId, ...paging(paging_) },
+      }),
+    placeholderData: keepPreviousData,
+    refetchInterval: state === 'waiting' || filter.streamId ? 30_000 : false,
+  })
+}
+
+/** One restriction: what the host was told, the appeal conversation, and their others. */
+export function useHostingRestriction(restrictionId: string) {
+  return useQuery({
+    queryKey: ['hosting-restriction', restrictionId],
+    queryFn: ({ signal }) =>
+      api<HostingRestrictionDetail>(`/admin/hosting-restrictions/${id(restrictionId)}`, { signal }),
+    refetchInterval: 30_000,
+  })
+}
+
+/** The reasons staff saved, to pick from when restricting. */
+export function useHostingReasons(includeArchived = false) {
+  return useQuery({
+    queryKey: ['hosting-reasons', includeArchived],
+    queryFn: ({ signal }) =>
+      api<HostingReason[]>('/admin/hosting-reasons', {
+        signal,
+        query: { archived: includeArchived ? 'true' : undefined },
+      }),
+  })
+}
+
 // ---- Writes ---------------------------------------------------------------
 
 export const actions = {
@@ -400,6 +444,33 @@ export const actions = {
     api<ReportCaseDetail>(`/admin/reports/${id(caseId)}/resolve`, { method: 'POST', body: { outcome, note } }),
   removeReportedMessage: (caseId: string) =>
     api<{ removed: boolean }>(`/admin/reports/${id(caseId)}/remove-message`, { method: 'POST' }),
+
+  restrictHost: (body: {
+    userId: string
+    streamId?: string
+    reasonId?: string
+    title: string
+    message: string
+    note?: string
+    durationHours: number | null
+    saveAsReason?: boolean
+  }) => api<HostingRestrictionDetail>('/admin/hosting-restrictions', { method: 'POST', body }),
+  liftRestriction: (restrictionId: string, reply?: string) =>
+    api<HostingRestrictionDetail>(`/admin/hosting-restrictions/${id(restrictionId)}/lift`, {
+      method: 'POST',
+      body: { reply },
+    }),
+  answerAppeal: (restrictionId: string, decision: 'KEEP' | 'ASK', text: string) =>
+    api<HostingRestrictionDetail>(`/admin/hosting-restrictions/${id(restrictionId)}/answer`, {
+      method: 'POST',
+      body: { decision, text },
+    }),
+  updateRestriction: (restrictionId: string, body: { endsAt?: string | null; note?: string | null }) =>
+    api<HostingRestrictionDetail>(`/admin/hosting-restrictions/${id(restrictionId)}`, { method: 'PATCH', body }),
+  addHostingReason: (body: { title: string; message: string }) =>
+    api<HostingReason>('/admin/hosting-reasons', { method: 'POST', body }),
+  updateHostingReason: (reasonId: string, body: { title?: string; message?: string; archived?: boolean }) =>
+    api<HostingReason>(`/admin/hosting-reasons/${id(reasonId)}`, { method: 'PATCH', body }),
 }
 
 interface AdminMutationOptions<TResult, TVariables> {

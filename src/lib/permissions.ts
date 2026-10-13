@@ -63,6 +63,24 @@ export const ACCESS_AREAS: AccessArea[] = [
     ],
   },
   {
+    key: 'hosting',
+    label: 'Hosting restrictions',
+    levels: [
+      {
+        value: 'view',
+        label: 'View',
+        description: "See whose hosting is paused, why, and the host's appeal.",
+        grants: ['VIEW_HOSTING_RESTRICTIONS'],
+      },
+      {
+        value: 'manage',
+        label: 'Manage',
+        description: "Also pause someone's hosting, answer appeals, lift it, and keep the list of reasons.",
+        grants: ['VIEW_HOSTING_RESTRICTIONS', 'MANAGE_HOSTING_RESTRICTIONS'],
+      },
+    ],
+  },
+  {
     key: 'alerts',
     label: 'Alerts',
     levels: [

@@ -18,6 +18,7 @@ import {
   alertsSearch,
   appUpdatesSearch,
   auditSearch,
+  hostingSearch,
   liveChatSearch,
   messagesSearch,
   phrasesSearch,
@@ -138,6 +139,14 @@ const reportsRoute = createRoute({
   component: lazyRouteComponent(() => import('../features/reports/ReportsPage'), 'ReportsPage'),
 })
 
+const hostingRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/hosting',
+  validateSearch: hostingSearch,
+  beforeLoad: needs('VIEW_HOSTING_RESTRICTIONS'),
+  component: lazyRouteComponent(() => import('../features/hosting/HostingPage'), 'HostingPage'),
+})
+
 const phrasesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/phrases',
@@ -205,6 +214,7 @@ const routeTree = rootRoute.addChildren([
     userRoute,
     alertsRoute,
     reportsRoute,
+    hostingRoute,
     phrasesRoute,
     auditRoute,
     messagesRoute,

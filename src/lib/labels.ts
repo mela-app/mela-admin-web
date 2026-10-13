@@ -1,4 +1,6 @@
 import type {
+  HostingAppealState,
+  HostingRestrictionStatus,
   AlertSeverity,
   AppPlatform,
   AuditActorRole,
@@ -42,6 +44,7 @@ export const END_REASON_LABELS: Record<StreamEndReason, string> = {
   HOST_DISCONNECTED: 'Host lost connection',
   REPLACED: 'Host went live again',
   LOCKED: 'Locked by staff',
+  HOST_RESTRICTED: "Host's hosting was paused",
 }
 
 export const LAYOUT_LABELS: Record<StreamLayout, string> = {
@@ -133,4 +136,17 @@ export const REPORT_STATUS_LABELS: Record<ReportCaseStatus, string> = {
   OPEN: 'Open',
   ACTIONED: 'Action taken',
   DISMISSED: 'No violation',
+}
+
+export const HOSTING_STATUS_LABELS: Record<HostingRestrictionStatus, string> = {
+  ACTIVE: 'In force',
+  LIFTED: 'Lifted',
+  EXPIRED: 'Ran out',
+}
+
+export const HOSTING_APPEAL_LABELS: Record<HostingAppealState, string> = {
+  NONE: 'No appeal',
+  WAITING_STAFF: 'Appeal waiting',
+  WAITING_HOST: 'Waiting for the host',
+  KEPT: 'Kept after appeal',
 }

@@ -40,10 +40,27 @@ export function streamsSearch(search: Record<string, unknown>): StreamsSearch {
   }
 }
 
-export type StreamTab = 'chat' | 'activity' | 'people'
+export type StreamTab = 'chat' | 'activity' | 'people' | 'hosting'
 
 export function streamSearch(search: Record<string, unknown>): { tab?: StreamTab } {
-  return { tab: oneOf(search.tab, ['activity', 'people'] as const) }
+  return { tab: oneOf(search.tab, ['activity', 'people', 'hosting'] as const) }
+}
+
+export type HostingTab = 'waiting' | 'active' | 'ended' | 'reasons'
+
+export interface HostingSearch extends PageSearch {
+  // None means the appeals waiting for the team.
+  tab?: Exclude<HostingTab, 'waiting'>
+  // The restriction open beside the list.
+  restriction?: string
+}
+
+export function hostingSearch(search: Record<string, unknown>): HostingSearch {
+  return {
+    tab: oneOf(search.tab, ['active', 'ended', 'reasons'] as const),
+    restriction: text(search.restriction, 64),
+    ...pageSearch(search),
+  }
 }
 
 export interface UsersSearch extends PageSearch {

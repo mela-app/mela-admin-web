@@ -271,6 +271,16 @@ as well.
   it was asked to keep (`TRUNCATE`, in one transaction) - so a table added
   later is covered without changing it.
 
+### Hosting restrictions (docs/features/hosting-restrictions.md)
+
+Pausing a host's streaming because of a live - from the live's page
+(**Pause hosting**, and its **Hosting restriction** tab with the appeal) or
+a live's heading on the Live chat page - with the team's own reasons.
+The **Hosting restrictions** page (under Safety; the sidebar counts
+appeals waiting) lists the appeals waiting, those in force and those ended,
+and keeps the reasons. Permissions: `VIEW_HOSTING_RESTRICTIONS`,
+`MANAGE_HOSTING_RESTRICTIONS`.
+
 ### App updates
 
 The **App updates** page (`/app-updates`, under Manage) publishes each new
@@ -311,6 +321,7 @@ POST   /admin/chat/messages/delete ({messageIds: 1-500})                   [MANA
 GET    /admin/reports[?status=OPEN|ACTIONED|DISMISSED&type&page&pageSize] | /admin/reports/:id  [VIEW_REPORTS]
 POST   /admin/reports/:id/resolve ({outcome: ACTIONED|DISMISSED, note?})   [MANAGE_REPORTS]
 POST   /admin/reports/:id/remove-message   (a reported private message)    [MANAGE_REPORTS]
+GET/POST/PATCH /admin/hosting-reasons | /admin/hosting-restrictions[/:id[/lift|/answer]]  [VIEW_/MANAGE_HOSTING_RESTRICTIONS] (docs/features/hosting-restrictions.md)
 GET    /admin/app-releases[?page&pageSize]                                 [VIEW_APP_RELEASES]
 POST   /admin/app-releases ({platform, version, build, notes, downloadUrl, required?})  [MANAGE_APP_RELEASES]
 PATCH  /admin/app-releases/:id ({notes?, downloadUrl?, required?}) | DELETE /admin/app-releases/:id  [MANAGE_APP_RELEASES]

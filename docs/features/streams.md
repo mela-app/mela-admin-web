@@ -117,6 +117,15 @@ What's seen in the preview is what viewers get. Settings are kept on the phone (
 
 **UI:** **Effects** on the go-live preview and in the live controls opens `showEffectsSheet`. It's see-through at the top, so the host watches the change as it happens.
 
+## Hosting restrictions (2026-10)
+
+Staff can pause a host's streaming because of a live
+(docs/features/hosting-restrictions.md): `goLive`, raising a hand,
+accepting or being sent a stage invite, and scheduling a live are refused
+with `403 HOSTING_RESTRICTED`; a running live ends with
+`StreamEndReason.HOST_RESTRICTED` and the user leaves any stage
+(`StreamsService.handleHostingRestricted`). Watching is never affected.
+
 ## How to add to this feature
 
 - **A new room-ban scope**: add the value to the Prisma `RoomBanScope` enum (+ migration) and a branch whichever side of `RoomBansService.ban()`/`isBanned()` needs it - both already switch on `scope`, not a boolean.

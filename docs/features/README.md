@@ -72,6 +72,7 @@ Where its tests live and what they cover.
 | Live chat by host and day (console) | [admin.md](./admin.md), [chat.md](./chat.md) | Done (2026-10) |
 | App updates (update prompts, required updates, what's new) | [app-updates.md](./app-updates.md) | Done (2026-10) |
 | Reports (in the app; the console's Reports page) | [moderation.md](./moderation.md), [admin.md](./admin.md) | Done (2026-10) |
+| Hosting restrictions and appeals (pausing a host's streaming because of a live) | [hosting-restrictions.md](./hosting-restrictions.md) | Done (2026-10) |
 | Account deletion (in the app, by a super admin, and the `/delete-account` page) | [auth.md](./auth.md) | Done (2026-10) |
 | For You ranking, live search, followers'/friends' lives, live pictures, scheduled lives with reminders | [streams.md](./streams.md) | Done (2026-10) |
 | Several API instances (Redis adapter, per-instance presence), LiveKit webhooks | [realtime.md](./realtime.md) | Done (2026-10) |

@@ -1,6 +1,6 @@
 import { liveName } from '../../lib/live-name'
 import { getRouteApi, Link } from '@tanstack/react-router'
-import { MessageSquareText, Radio } from 'lucide-react'
+import { MessageSquareText, Radio, ShieldOff } from 'lucide-react'
 import { useState } from 'react'
 import type { LiveChatSearch } from '../../app/search'
 import { DayNavigation } from '../../components/DayNavigation'
@@ -252,6 +252,17 @@ function LiveHeading({ live, day }: { live: LiveChatLive; day: string }) {
       )}
       <span>started {started}</span>
       <StreamStatusBadge status={live.status} />
+      {auth.can('VIEW_LIVES') && auth.can('VIEW_HOSTING_RESTRICTIONS') && (
+        <Link
+          to="/streams/$streamId"
+          params={{ streamId: live.id }}
+          search={{ tab: 'hosting' }}
+          className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline"
+        >
+          <ShieldOff className="size-3.5" aria-hidden />
+          Hosting restriction
+        </Link>
+      )}
       <span className="ml-auto tabular-nums">
         {formatNumber(live.messageCount)} {live.messageCount === 1 ? 'message' : 'messages'}
       </span>

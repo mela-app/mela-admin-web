@@ -208,6 +208,14 @@ is `/get-mela`, plus "New to Mela? Get it here"), the web player's
 Android". The in-app update link (`store-link.ts`) still goes to the store -
 testers already have Mela.
 
+**Landing on the live after installing.** Every Google Play listing link a
+share page gives out carries `&referrer=mela_open=live/<id>` (or
+`profile/<id>`; `withInstallReferrer`). Play hands it to the app on its
+first launch (Install Referrer API: `InstallReferrer.kt`, mobile
+`install_referrer.dart`), which opens that live - after sign-up, through
+the router's `from` - even when the friend opens Mela from Play instead of
+coming back to the page. Used once, and only within 7 days of the install.
+
 **Once Mela is public**, blank `ANDROID_TESTER_GROUP_URL`: every link goes
 to the Play listing again and `/get-mela` redirects there - no app release
 needed. The proxy must send `/get-mela` to the API, like `/live/*`.

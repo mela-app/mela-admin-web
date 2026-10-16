@@ -14,6 +14,10 @@ import type {
   AppRelease,
   AppReleasePage,
   AuditCatalog,
+  CameraEffect,
+  CameraEffectCategory,
+  CameraEffectKind,
+  SaveCameraEffect,
   AuditEntry,
   BannedPhrase,
   BannedPhraseSeverity,
@@ -397,6 +401,22 @@ export function useHostingReasons(includeArchived = false) {
   })
 }
 
+/** The camera effects of one kind, drafts too. */
+export function useCameraEffects(kind: CameraEffectKind) {
+  return useQuery({
+    queryKey: ['camera-effects', kind],
+    queryFn: ({ signal }) => api<CameraEffect[]>('/admin/camera-effects', { signal, query: { kind } }),
+  })
+}
+
+/** The Effects panel's tabs, after Trending and New. */
+export function useCameraEffectCategories() {
+  return useQuery({
+    queryKey: ['camera-effect-categories'],
+    queryFn: ({ signal }) => api<CameraEffectCategory[]>('/admin/camera-effects/categories', { signal }),
+  })
+}
+
 // ---- Writes ---------------------------------------------------------------
 
 export const actions = {
@@ -489,6 +509,17 @@ export const actions = {
     }),
   updateRestriction: (restrictionId: string, body: { endsAt?: string | null; note?: string | null }) =>
     api<HostingRestrictionDetail>(`/admin/hosting-restrictions/${id(restrictionId)}`, { method: 'PATCH', body }),
+  createCameraEffect: (body: SaveCameraEffect) => api<CameraEffect>('/admin/camera-effects', { method: 'POST', body }),
+  updateCameraEffect: (effectId: string, body: SaveCameraEffect) =>
+    api<CameraEffect>(`/admin/camera-effects/${id(effectId)}`, { method: 'PATCH', body }),
+  deleteCameraEffect: (effectId: string) =>
+    api<{ ok: true }>(`/admin/camera-effects/${id(effectId)}`, { method: 'DELETE' }),
+  saveCameraEffectCategory: (categoryId: string | null, body: { name?: string; sortOrder?: number }) =>
+    categoryId
+      ? api<CameraEffectCategory>(`/admin/camera-effects/categories/${id(categoryId)}`, { method: 'PATCH', body })
+      : api<CameraEffectCategory>('/admin/camera-effects/categories', { method: 'POST', body }),
+  deleteCameraEffectCategory: (categoryId: string) =>
+    api<{ ok: true }>(`/admin/camera-effects/categories/${id(categoryId)}`, { method: 'DELETE' }),
   addHostingReason: (body: { title: string; message: string }) =>
     api<HostingReason>('/admin/hosting-reasons', { method: 'POST', body }),
   updateHostingReason: (reasonId: string, body: { title?: string; message?: string; archived?: boolean }) =>
@@ -522,4 +553,37 @@ export function useAdminMutation<TVariables, TResult>(
       if (toastErrors) toast.error(error)
     },
   })
+}
+
+const UPLOAD_TYPES: Record<string, string> = {
+  deepar: 'application/octet-stream',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+}
+
+/**
+ * Uploads [file] straight to storage (a presigned link from the API) and
+ * answers the key to save it with. Needs the storage to allow the console
+ * (its CORS rules; docs/features/camera-effects.md).
+ */
+export async function uploadCameraEffectFile(file: File, kind: 'file' | 'image'): Promise<{ key: string; size: number }> {
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+  const contentType = UPLOAD_TYPES[extension]
+  if (!contentType || (kind === 'file') !== (extension === 'deepar')) {
+    throw new Error(kind === 'file' ? 'Pick a .deepar file.' : 'Pick a JPG, PNG or WebP picture.')
+  }
+  const target = await api<{ uploadUrl: string; key: string }>('/admin/camera-effects/upload-url', {
+    method: 'POST',
+    body: { contentType },
+  })
+  let response: Response
+  try {
+    response = await fetch(target.uploadUrl, { method: 'PUT', headers: { 'Content-Type': contentType }, body: file })
+  } catch {
+    throw new Error("Couldn't reach the storage. It may need to allow the console - see the camera effects guide.")
+  }
+  if (!response.ok) throw new Error(`The storage refused the file (${response.status}). Try again.`)
+  return { key: target.key, size: file.size }
 }

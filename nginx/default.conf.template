@@ -1,5 +1,6 @@
 # The admin console: the static build, and /v1 proxied to the API.
-# A template: API_UPSTREAM and CSP_IMG_SRC are filled in at start-up.
+# A template: API_UPSTREAM and CSP_IMG_SRC are filled in at start-up. CSP_IMG_SRC
+# (the storage's address) is also where camera effect files are uploaded to.
 server {
     listen 8080;
     server_name _;
@@ -12,7 +13,7 @@ server {
 
     # Every response. A location with an add_header of its own would drop
     # these, so the locations below set caching with `expires` instead.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ${CSP_IMG_SRC}; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ${CSP_IMG_SRC}; font-src 'self' data:; connect-src 'self' ${CSP_IMG_SRC}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;

@@ -335,6 +335,13 @@ function TargetLink({ entry, onNavigate }: { entry: AuditEntry; onNavigate: () =
           {label}
         </Link>
       )
+    case 'CAMERA_EFFECT':
+      if (!auth.can('VIEW_CAMERA_EFFECTS')) break
+      return (
+        <Link to="/camera-effects" onClick={onNavigate} className={className}>
+          {label}
+        </Link>
+      )
     case 'HOSTING_REASON':
       if (!auth.can('VIEW_HOSTING_RESTRICTIONS')) break
       return (

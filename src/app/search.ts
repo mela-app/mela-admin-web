@@ -46,6 +46,12 @@ export function streamSearch(search: Record<string, unknown>): { tab?: StreamTab
   return { tab: oneOf(search.tab, ['activity', 'people', 'hosting'] as const) }
 }
 
+export type CameraEffectsTab = 'effects' | 'makeup' | 'backgrounds' | 'beauty' | 'categories'
+
+export function cameraEffectsSearch(search: Record<string, unknown>): { tab?: CameraEffectsTab } {
+  return { tab: oneOf(search.tab, ['makeup', 'backgrounds', 'beauty', 'categories'] as const) }
+}
+
 export type HostingTab = 'waiting' | 'active' | 'ended' | 'all' | 'reasons'
 
 export interface HostingSearch extends PageSearch {

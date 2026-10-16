@@ -93,29 +93,8 @@ A short, see-through text the host puts on the stage, for example "Bingo round 3
 
 ### Camera effects (beauty and filters)
 
-**Beauty:**
-- **Smooth:** an edge-keeping blur, strongest on skin tones.
-- **Brighten:** a log curve that lifts shadows and midtones.
-- **Rosy:** a warm glow on skin.
-
-One-tap looks: **Off**, **Natural** and **Glow**.
-
-**Filters:** None, Natural, Warm, Cool, Vivid, Soft, Vintage and Mono, each a 3x4 color matrix (`CameraFilter`), with a **Strength** slider.
-
-What's seen in the preview is what viewers get. Settings are kept on the phone (`cameraEffectsProvider`, `shared_preferences`) and used from the first preview frame. A guest's camera on stage wears the phone's saved look too.
-
-**How it's drawn.**
-- **LiveKit on Android:** `CameraEffects.kt` adds a processor to flutter_webrtc's `LocalVideoTrack` (its `ExternalVideoFrameProcessing` hook).
-  - **Pipeline:** each camera frame (an OES or RGB texture, on WebRTC's camera thread with its EGL context) is drawn through one fragment shader into a pooled `GlTextureFrameBuffer` (4 of them), and goes on as a `TextureBufferImpl`. Nothing is copied to the CPU.
-  - **When nothing is on**, frames pass through untouched.
-  - **Pool full:** a frame goes out as it came.
-  - **GL errors:** the effects turn off for that camera; the live goes on.
-  - **New camera:** effects are put on every new camera track (flip, reopen, camera back on) through `onCameraStarted`.
-  - **Dependency:** the app compiles against the same WebRTC flutter_webrtc ships, as `compileOnly`. Keep the versions in step when upgrading flutter_webrtc.
-- **Agora:** its own `setBeautyEffectOptions` (smooth, brighten, rosy); Agora has no color filters, so the sheet shows Beauty only.
-- **iOS:** not yet (`supportsEffects` false on LiveKit/iOS).
-
-**UI:** **Effects** on the go-live preview and in the live controls opens `showEffectsSheet`. It's see-through at the top, so the host watches the change as it happens.
+Moved and grown into the live studio - Beautify, Effects, Settings: see
+docs/features/camera-effects.md.
 
 ## Hosting restrictions (2026-10)
 

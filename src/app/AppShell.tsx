@@ -13,6 +13,7 @@ import {
   Settings,
   ShieldBan,
   ShieldOff,
+  Sparkles,
   ShieldUser,
   Smartphone,
   Users,
@@ -40,6 +41,7 @@ type NavTarget =
   | '/staff'
   | '/app-updates'
   | '/hosting'
+  | '/camera-effects'
   | '/reports'
   | '/alerts'
   | '/phrases'
@@ -145,6 +147,7 @@ function Sidebar() {
         { to: '/users', label: 'Users', icon: Users, needs: 'VIEW_USERS' },
         { to: '/staff', label: 'Staff', icon: ShieldUser },
         { to: '/app-updates', label: 'App updates', icon: Smartphone, needs: 'VIEW_APP_RELEASES' },
+        { to: '/camera-effects', label: 'Camera effects', icon: Sparkles, needs: 'VIEW_CAMERA_EFFECTS' },
       ],
     },
     {

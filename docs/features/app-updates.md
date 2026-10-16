@@ -91,6 +91,11 @@ Google Play has (`StoreUpdater`: `PlayStoreUpdater` on Android, through the
   version typed wrong in the console - the app stays usable and Settings says
   it's on its way (`mustUpdateNow`); the check after Play has it blocks. Only
   an app not from Play (no way to ask Play) is blocked on the server's word.
+  **Installed by Play** (`InstalledApp.fromPlay`, Android's installer
+  `com.android.vending`) but Play's update check fails - common right after
+  a fresh install, and in closed testing - counts as Play having nothing for
+  this phone: no offer, no lock. Before, a fresh install could be sent to a
+  Play page with no update on it, again and again.
 - **Never during a live**: nothing is shown while the phone is watching,
   setting up, hosting or on a stage. A required update waits until the live
   is left.

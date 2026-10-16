@@ -21,6 +21,8 @@ export type AdminPermission =
   | 'MANAGE_REPORTS'
   | 'VIEW_HOSTING_RESTRICTIONS'
   | 'MANAGE_HOSTING_RESTRICTIONS'
+  | 'VIEW_CAMERA_EFFECTS'
+  | 'MANAGE_CAMERA_EFFECTS'
 export type UserStatus = 'ACTIVE' | 'SUSPENDED'
 export type SessionPlatform = 'ANDROID' | 'IOS' | 'WEB' | 'UNKNOWN'
 export type StreamStatus = 'SCHEDULED' | 'LIVE' | 'ENDED' | 'LOCKED'
@@ -549,4 +551,64 @@ export interface HostingInForce {
   endsAt: string | null
   appealState: HostingAppealState
   createdAt: string
+}
+
+// ---- Camera effects (docs/features/camera-effects.md) -----------------------
+
+export type CameraEffectKind = 'EFFECT' | 'MAKEUP' | 'BACKGROUND' | 'BEAUTY'
+export type MakeupAudience = 'ALL' | 'FEMALE' | 'MALE'
+export type BeautyGroup = 'FACE' | 'EYES' | 'NOSE' | 'MOUTH'
+
+// One Beautify slider: what it changes in the beauty rig.
+export interface BeautyControl {
+  key: string
+  label: string
+  group: BeautyGroup
+  gameObject: string
+  component: string
+  parameter: string
+  from: number
+  to: number
+}
+
+export interface CameraEffect {
+  id: string
+  kind: CameraEffectKind
+  name: string
+  categoryId: string | null
+  audience: MakeupAudience
+  fileUrl: string | null
+  fileSize: number | null
+  thumbnailUrl: string | null
+  imageUrl: string | null
+  controls: BeautyControl[] | null
+  featured: boolean
+  published: boolean
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+  category: { id: string; name: string } | null
+  createdBy: { id: string; username: string } | null
+}
+
+export interface CameraEffectCategory {
+  id: string
+  name: string
+  sortOrder: number
+  effectCount: number
+}
+
+export interface SaveCameraEffect {
+  kind?: CameraEffectKind
+  name?: string
+  categoryId?: string | null
+  audience?: MakeupAudience
+  fileKey?: string
+  fileSize?: number
+  thumbnailKey?: string | null
+  imageKey?: string
+  controls?: BeautyControl[]
+  featured?: boolean
+  published?: boolean
+  sortOrder?: number
 }

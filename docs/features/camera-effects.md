@@ -35,6 +35,13 @@ phone after (`camera_effects/` in the app's storage; a replaced file is
 fetched again). So the app stays small, and new effects reach every host at
 once. The color filters and skin smoothing are built into the app.
 
+- **Upload many** (Effects, Makeup, Backgrounds): pick a folder's files at
+  once. Each `.deepar` finds its thumbnail by name (`viking.deepar` +
+  `viking.png`, or `viking_thumb.png`), is named from its file ("Viking
+  Helmet" from `viking_helmet`), and one without a thumbnail can get a
+  made-up one (a colored square with its name) so it can be published now.
+  Names, category and Female/Male can be changed per file before adding;
+  one that fails doesn't stop the rest (`BulkUpload.tsx`, `bulk.ts`).
 - **Effects** belong to a **category** (the console's Categories tab; a tab
   in the app once it has a published effect). **Trending** is a tick on the
   effect; **New** is anything published in the last 14 days.

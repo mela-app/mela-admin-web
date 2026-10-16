@@ -1,5 +1,5 @@
 import { getRouteApi } from '@tanstack/react-router'
-import { Eye, EyeOff, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, FolderUp, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import type { CameraEffectsTab } from '../../app/search'
 import { Badge } from '../../components/ui/Badge'
@@ -12,6 +12,7 @@ import { PageHeader, RelativeTime, Tabs } from '../../components/ui/misc'
 import { useAuth } from '../../lib/auth-context'
 import { actions, useAdminMutation, useCameraEffectCategories, useCameraEffects } from '../../lib/queries'
 import type { CameraEffect, CameraEffectKind } from '../../lib/types'
+import { BulkUpload } from './BulkUpload'
 import { CategoriesPanel } from './CategoriesPanel'
 import { EffectForm } from './EffectForm'
 import { AUDIENCE_LABELS, KIND_LABELS } from './labels'
@@ -78,6 +79,7 @@ function EffectList({ kind }: { kind: CameraEffectKind }) {
   const [category, setCategory] = useState('')
   const [editing, setEditing] = useState<CameraEffect | 'new' | null>(null)
   const [deleting, setDeleting] = useState<CameraEffect | null>(null)
+  const [bulk, setBulk] = useState(false)
   const publish = useAdminMutation(
     (effect: CameraEffect) => actions.updateCameraEffect(effect.id, { published: !effect.published }),
     { success: (effect) => (effect.published ? 'Published - hosts see it now.' : 'Unpublished - hosts no longer see it.') },
@@ -112,9 +114,16 @@ function EffectList({ kind }: { kind: CameraEffectKind }) {
           <p className="text-[13px] text-zinc-500">Only one rig is published at a time - publishing one unpublishes the other.</p>
         )}
         {canManage && (
-          <Button className="ml-auto" variant="primary" icon={<Plus />} onClick={() => setEditing('new')}>
-            Add {labels.one.toLowerCase()}
-          </Button>
+          <div className="ml-auto flex gap-2">
+            {kind !== 'BEAUTY' && (
+              <Button icon={<FolderUp />} onClick={() => setBulk(true)}>
+                Upload many
+              </Button>
+            )}
+            <Button variant="primary" icon={<Plus />} onClick={() => setEditing('new')}>
+              Add {labels.one.toLowerCase()}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -196,6 +205,15 @@ function EffectList({ kind }: { kind: CameraEffectKind }) {
         title={editing === 'new' ? `Add ${labels.one.toLowerCase()}` : `Edit ${editing?.name ?? ''}`}
       >
         {editing !== null && <EffectForm kind={kind} effect={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      </Dialog>
+      <Dialog
+        open={bulk}
+        onClose={() => setBulk(false)}
+        size="lg"
+        title={`Upload many ${labels.many.toLowerCase()}`}
+        description="Pick them all at once - each .deepar file finds its thumbnail by name."
+      >
+        {bulk && <BulkUpload kind={kind} onClose={() => setBulk(false)} />}
       </Dialog>
       <ConfirmDialog
         open={deleting !== null}

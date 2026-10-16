@@ -18,7 +18,6 @@ import {
   alertsSearch,
   appUpdatesSearch,
   auditSearch,
-  cameraEffectsSearch,
   hostingSearch,
   liveChatSearch,
   messagesSearch,
@@ -140,14 +139,6 @@ const reportsRoute = createRoute({
   component: lazyRouteComponent(() => import('../features/reports/ReportsPage'), 'ReportsPage'),
 })
 
-const cameraEffectsRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: '/camera-effects',
-  validateSearch: cameraEffectsSearch,
-  beforeLoad: needs('VIEW_CAMERA_EFFECTS'),
-  component: lazyRouteComponent(() => import('../features/camera-effects/CameraEffectsPage'), 'CameraEffectsPage'),
-})
-
 const hostingRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/hosting',
@@ -224,7 +215,6 @@ const routeTree = rootRoute.addChildren([
     alertsRoute,
     reportsRoute,
     hostingRoute,
-    cameraEffectsRoute,
     phrasesRoute,
     auditRoute,
     messagesRoute,

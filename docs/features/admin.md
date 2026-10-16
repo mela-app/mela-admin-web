@@ -282,13 +282,6 @@ appeals waiting) lists the appeals waiting, those in force and those ended,
 and keeps the reasons. Permissions: `VIEW_HOSTING_RESTRICTIONS`,
 `MANAGE_HOSTING_RESTRICTIONS`.
 
-### Camera effects (docs/features/camera-effects.md)
-
-**Manage → Camera effects** uploads and publishes what hosts can put on
-their camera: effects by category, makeup looks, green-screen backgrounds
-and the face-shape rig. Permissions: `VIEW_CAMERA_EFFECTS`,
-`MANAGE_CAMERA_EFFECTS`.
-
 ### App updates
 
 The **App updates** page (`/app-updates`, under Manage) publishes each new

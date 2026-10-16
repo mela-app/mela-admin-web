@@ -53,7 +53,7 @@ These supersede the ranking and visibility notes above.
 
 **Host screen layout** (client feedback, 2026-10): while live, the top left is the host's own picture and name with the LIVE timer under it (`_HostIdentity`), and the top right a red power button that ends the live (with the usual confirmation) - the old top-left X and the bottom stop button are gone; before going live the preview keeps its close X. On both live screens the chat takes at most 22% of the stage's height (`kStageChatHeightFraction`, was 30%), which brings the live's title down, and sits just above the controls (the arrival row under it is the gap).
 
-## No title or game type; the board; camera effects (client request, 2026-10)
+## No title or game type; the board; the live studio (client request, 2026-10)
 
 ### No title or game type
 
@@ -91,10 +91,33 @@ A short, see-through text the host puts on the stage, for example "Bingo round 3
 - **Entry points:** the host has **Text** in the live controls; a moderator with `EDIT_BOARD` has a **Text** button on the right rail.
 - **Web player:** `Stage.tsx` draws it the same way (CSS: `left x%` and `translate(-x%)`, Flutter's `Align`).
 
-### Camera effects (beauty and filters)
+### The live studio: Beautify, Effects, Settings (2026-10)
 
-Moved and grown into the live studio - Beautify, Effects, Settings: see
-docs/features/camera-effects.md.
+The go-live preview is laid out like TikTok's LIVE studio: the camera full
+screen, a pill with who can watch and the quality, three tools -
+**Beautify**, **Effects**, **Settings** - and **Go LIVE**. Each opens a dark,
+see-through panel over the camera (`lib/features/live_stream/studio/`);
+Beautify and Effects are in the live controls too.
+
+- **Beautify → Beauty**: Smooth, Brighten, Glow, Sharpen.
+- **Beautify → Filters**: 32 color looks in Portrait, Vibe, Film, Life, B&W,
+  with a strength slider.
+- **Beautify → Makeup** and the **Effects** panel (Trending, New, Sports,
+  Green Screen...) say **Coming soon**: they need an AR engine (face
+  tracking), which Mela doesn't ship yet. An AR SDK (DeepAR) was tried in
+  2026-10 and taken out again - its watermark and licence cost.
+- **Settings**: who can watch, layout, schedule for later, and **live
+  quality** - Data saver (384x216, 220 kbps), Standard (640x360, 400 kbps,
+  the default) or HD (960x540, 900 kbps, 20 fps); chosen before going live,
+  kept for the next.
+
+The beauty and filters are drawn on the phone's GPU into every camera frame
+(`CameraEffects.kt`: an edge-keeping skin blur, brightening, a rosy glow on
+skin tones, an unsharp mask, then the filter's 3x4 color matrix), so the
+preview and what viewers see are the same; they're kept between lives
+(`cameraEffectsProvider`). Android with LiveKit; on Agora, Beautify has the
+skin sliders only. Any GL error turns them off and the camera goes on as it
+is.
 
 ## Hosting restrictions (2026-10)
 

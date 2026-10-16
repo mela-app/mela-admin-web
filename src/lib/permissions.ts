@@ -132,24 +132,6 @@ export const ACCESS_AREAS: AccessArea[] = [
     ],
   },
   {
-    key: 'cameraEffects',
-    label: 'Camera effects',
-    levels: [
-      {
-        value: 'view',
-        label: 'View',
-        description: 'See the effects, makeup, backgrounds and beauty sliders the app offers.',
-        grants: ['VIEW_CAMERA_EFFECTS'],
-      },
-      {
-        value: 'manage',
-        label: 'Manage',
-        description: 'Also upload, change, publish and delete them.',
-        grants: ['VIEW_CAMERA_EFFECTS', 'MANAGE_CAMERA_EFFECTS'],
-      },
-    ],
-  },
-  {
     key: 'appUpdates',
     label: 'App updates',
     levels: [

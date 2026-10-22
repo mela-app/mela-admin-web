@@ -237,6 +237,15 @@ live's Chat log: pick some, or **Pick all shown**, then **Delete N
 messages** - one confirmation, then `POST /admin/chat/messages/delete`
 (500 at a time; the console splits a bigger pick).
 
+### Video (super admins)
+
+The **Video** page (`/video`, under System; 2026-10) switches where new lives
+go - Agora or LiveKit - and shows how much of Agora's 10,000 free minutes a
+month are left - from Agora's own usage report (Customer ID/Secret), with
+Mela counting only today - when they restart and when they'd run out at the
+current pace, with an optional automatic switch to LiveKit when they run low. Running
+lives keep their provider. Details: docs/features/video-provider.md.
+
 ### Data (super admins)
 
 The **Data** page (`/data`, under System; client request, 2026-10) is for

@@ -43,6 +43,9 @@ import type {
   StreamRow,
   UserDetail,
   UserRow,
+  VideoOverview,
+  VideoProviderKind,
+  VideoSettings,
 } from './types'
 import type {
   AuditSearch,
@@ -397,6 +400,15 @@ export function useHostingReasons(includeArchived = false) {
   })
 }
 
+/** Where new lives go, and Agora's free minutes - super admins only; kept current. */
+export function useVideoOverview() {
+  return useQuery({
+    queryKey: ['video'],
+    queryFn: ({ signal }) => api<VideoOverview>('/admin/video', { signal }),
+    refetchInterval: 30_000,
+  })
+}
+
 // ---- Writes ---------------------------------------------------------------
 
 export const actions = {
@@ -489,6 +501,11 @@ export const actions = {
     }),
   updateRestriction: (restrictionId: string, body: { endsAt?: string | null; note?: string | null }) =>
     api<HostingRestrictionDetail>(`/admin/hosting-restrictions/${id(restrictionId)}`, { method: 'PATCH', body }),
+  switchVideoProvider: (provider: VideoProviderKind, reason?: string) =>
+    api<VideoOverview>('/admin/video/switch', { method: 'POST', body: { provider, reason } }),
+  updateVideoSettings: (body: Partial<VideoSettings>) =>
+    api<VideoOverview>('/admin/video/settings', { method: 'PATCH', body }),
+  refreshAgoraReport: () => api<VideoOverview>('/admin/video/agora-report', { method: 'POST' }),
   addHostingReason: (body: { title: string; message: string }) =>
     api<HostingReason>('/admin/hosting-reasons', { method: 'POST', body }),
   updateHostingReason: (reasonId: string, body: { title?: string; message?: string; archived?: boolean }) =>

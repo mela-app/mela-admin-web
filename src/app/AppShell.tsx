@@ -10,6 +10,7 @@ import {
   MessagesSquare,
   Radio,
   ScrollText,
+  Video,
   Settings,
   ShieldBan,
   ShieldOff,
@@ -46,6 +47,7 @@ type NavTarget =
   | '/audit'
   | '/messages'
   | '/data'
+  | '/video'
 
 interface NavItem {
   to: NavTarget
@@ -178,7 +180,10 @@ function Sidebar() {
     },
     {
       label: 'System',
-      items: [{ to: '/data', label: 'Data', icon: Database, superAdminOnly: true }],
+      items: [
+        { to: '/video', label: 'Video', icon: Video, superAdminOnly: true },
+        { to: '/data', label: 'Data', icon: Database, superAdminOnly: true },
+      ],
     },
   ]
   const visible = sections

@@ -201,6 +201,16 @@ const dataRoute = createRoute({
   component: lazyRouteComponent(() => import('../features/data/DataPage'), 'DataPage'),
 })
 
+// A switch reaches every host's next live: super admins only, like Data.
+const videoRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/video',
+  beforeLoad: ({ context }) => {
+    if (!context.auth.isSuperAdmin) throw redirect({ to: '/no-access', replace: true })
+  },
+  component: lazyRouteComponent(() => import('../features/video/VideoPage'), 'VideoPage'),
+})
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   changePasswordRoute,
@@ -222,6 +232,7 @@ const routeTree = rootRoute.addChildren([
     appUpdatesRoute,
     accountRoute,
     dataRoute,
+    videoRoute,
   ]),
 ])
 

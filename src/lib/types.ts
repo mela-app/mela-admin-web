@@ -551,3 +551,50 @@ export interface HostingInForce {
   createdAt: string
 }
 
+// ---- Video providers (docs/features/video-provider.md) --------------------------
+
+export interface VideoOverview {
+  // Where new lives go.
+  activeProvider: VideoProviderKind
+  providers: Array<{ kind: VideoProviderKind; configured: boolean; liveNow: number }>
+  agora: {
+    freeMinutes: number
+    usedMinutes: number
+    remainingMinutes: number
+    percentUsed: number
+    // People on Agora lives right now: minutes used per minute.
+    burnPerMinute: number
+    runsOutAt: string | null
+    // Agora's own report, for the days it has finished.
+    reportedMinutes: number
+    // Days it hasn't (today, mostly): counted by Mela.
+    pendingMinutes: number
+    reportedThrough: string | null
+    report: {
+      // AGORA_CUSTOMER_ID / SECRET set on the server.
+      configured: boolean
+      fetchedAt: string | null
+      error: string | null
+    }
+    periodStart: string
+    resetsAt: string
+  }
+  settings: VideoSettings
+  switches: Array<{
+    id: string
+    from: VideoProviderKind
+    to: VideoProviderKind
+    reason: string
+    createdAt: string
+    // Null: the automatic switch.
+    actor: { id: string; username: string; displayName: string } | null
+  }>
+}
+
+export interface VideoSettings {
+  agoraFreeMinutes: number
+  autoSwitch: boolean
+  autoSwitchBelowMinutes: number
+  switchBackOnReset: boolean
+  autoSwitchedAt?: string | null
+}

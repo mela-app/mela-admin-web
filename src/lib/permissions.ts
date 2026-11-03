@@ -132,6 +132,36 @@ export const ACCESS_AREAS: AccessArea[] = [
     ],
   },
   {
+    key: 'analytics',
+    label: 'Analytics',
+    levels: [
+      {
+        value: 'view',
+        label: 'View',
+        description: 'See growth: active users, retention, watching, top hosts and where installs come from.',
+        grants: ['VIEW_ANALYTICS'],
+      },
+    ],
+  },
+  {
+    key: 'campaigns',
+    label: 'Campaigns',
+    levels: [
+      {
+        value: 'view',
+        label: 'View',
+        description: 'See push campaigns and how many opened them, banners and featured hosts.',
+        grants: ['VIEW_CAMPAIGNS'],
+      },
+      {
+        value: 'manage',
+        label: 'Manage',
+        description: 'Also send pushes to many people, publish banners in the app and feature hosts on For You.',
+        grants: ['VIEW_CAMPAIGNS', 'MANAGE_CAMPAIGNS'],
+      },
+    ],
+  },
+  {
     key: 'appUpdates',
     label: 'App updates',
     levels: [

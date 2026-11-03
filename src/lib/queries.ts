@@ -5,6 +5,11 @@ import { dayBoundary } from './format'
 import { useToast } from './toast-context'
 import type {
   AdminAlert,
+  AnalyticsOverview,
+  Announcement,
+  CampaignAudience,
+  FeaturedHost,
+  PushCampaign,
   AdminPermission,
   AdminView,
   AlertScope,
@@ -41,7 +46,9 @@ import type {
   StaffRole,
   StreamDetail,
   StreamRow,
+  UserBlockRow,
   UserDetail,
+  UserNote,
   UserRow,
   VideoOverview,
   VideoProviderKind,
@@ -162,6 +169,48 @@ export function useUserSessions(userId: string, enabled: boolean) {
   return useQuery({
     queryKey: ['user', userId, 'sessions'],
     queryFn: ({ signal }) => api<{ items: DeviceSession[] }>(`/admin/users/${id(userId)}/sessions`, { signal }),
+    enabled,
+  })
+}
+
+/** Report cases about this account, or the ones it reported - every status, latest first. */
+export function useUserReports(userId: string, direction: 'against' | 'by', page: number, enabled: boolean) {
+  return useQuery({
+    queryKey: ['reports', 'user', userId, direction, page],
+    queryFn: ({ signal }) =>
+      api<Page<ReportCaseRow>>('/admin/reports', {
+        signal,
+        query: {
+          status: 'ALL',
+          ...(direction === 'against' ? { reportedUserId: userId } : { reporterId: userId }),
+          page,
+          pageSize: 10,
+        },
+      }),
+    enabled,
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Who this account blocked, or who blocked it. */
+export function useUserBlocks(userId: string, direction: 'blocked' | 'blockedBy', page: number, enabled: boolean) {
+  return useQuery({
+    queryKey: ['user', userId, 'blocks', direction, page],
+    queryFn: ({ signal }) =>
+      api<Page<UserBlockRow>>(`/admin/users/${id(userId)}/blocks`, {
+        signal,
+        query: { direction, page, pageSize: 20 },
+      }),
+    enabled,
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Staff's private notes on this account, newest first. */
+export function useUserNotes(userId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['user', userId, 'notes'],
+    queryFn: ({ signal }) => api<{ items: UserNote[] }>(`/admin/users/${id(userId)}/notes`, { signal }),
     enabled,
   })
 }
@@ -309,6 +358,57 @@ export function useAppReleases(page: number) {
   })
 }
 
+/** Growth over a stretch of UTC days (YYYY-MM-DD, both included). */
+export function useAnalytics(from: string, to: string) {
+  return useQuery({
+    queryKey: ['analytics', from, to],
+    queryFn: ({ signal }) => api<AnalyticsOverview>('/admin/analytics', { signal, query: { from, to } }),
+    placeholderData: keepPreviousData,
+    refetchInterval: 5 * 60_000,
+  })
+}
+
+/** Push campaigns, the latest first; those going out keep themselves current. */
+export function useCampaigns(page: number) {
+  return useQuery({
+    queryKey: ['campaigns', page],
+    queryFn: ({ signal }) =>
+      api<Page<PushCampaign>>('/admin/campaigns', { signal, query: { page, pageSize: DEFAULT_PAGE_SIZE } }),
+    placeholderData: keepPreviousData,
+    refetchInterval: (query) =>
+      query.state.data?.items.some((row) => row.status === 'SCHEDULED' || row.status === 'SENDING') ? 15_000 : 60_000,
+  })
+}
+
+/** How many [audience] reaches right now. */
+export function useAudienceSize(audience: CampaignAudience, enabled: boolean) {
+  return useQuery({
+    queryKey: ['campaigns', 'audience', audience],
+    queryFn: ({ signal }) =>
+      api<{ count: number }>('/admin/campaigns/audience-size', { signal, method: 'POST', body: { audience } }),
+    enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  })
+}
+
+export function useAnnouncements(page: number) {
+  return useQuery({
+    queryKey: ['announcements', page],
+    queryFn: ({ signal }) =>
+      api<Page<Announcement>>('/admin/announcements', { signal, query: { page, pageSize: DEFAULT_PAGE_SIZE } }),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useFeaturedHosts() {
+  return useQuery({
+    queryKey: ['featured-hosts'],
+    queryFn: ({ signal }) => api<{ items: FeaturedHost[] }>('/admin/featured-hosts', { signal }),
+    refetchInterval: 60_000,
+  })
+}
+
 /** How much of each kind of data is stored - super admins only. */
 export function useDataOverview() {
   return useQuery({
@@ -411,6 +511,18 @@ export function useVideoOverview() {
 
 // ---- Writes ---------------------------------------------------------------
 
+export interface AnnouncementInput {
+  title: string
+  message: string
+  tone: Announcement['tone']
+  linkUrl: string | null
+  linkLabel: string | null
+  platform: Announcement['platform']
+  startsAt: string
+  endsAt: string | null
+  dismissible: boolean
+}
+
 export const actions = {
   lockStream: (streamId: string, reason: string) =>
     api<StreamDetail>(`/admin/streams/${id(streamId)}/lock`, { method: 'POST', body: { reason } }),
@@ -426,6 +538,32 @@ export const actions = {
   revokeUserSessions: (userId: string) =>
     api<{ ok: true; revoked: number }>(`/admin/users/${id(userId)}/sessions/revoke`, { method: 'POST' }),
   // Super admins only, for someone who asked without the app.
+  createCampaign: (input: {
+    title: string
+    body: string
+    openPath?: string
+    audience: CampaignAudience
+    scheduledAt?: string
+  }) => api<PushCampaign>('/admin/campaigns', { method: 'POST', body: input }),
+  cancelCampaign: (campaignId: string) =>
+    api<PushCampaign>(`/admin/campaigns/${id(campaignId)}/cancel`, { method: 'POST' }),
+  saveAnnouncement: (announcementId: string | null, input: AnnouncementInput) =>
+    announcementId
+      ? api<Announcement>(`/admin/announcements/${id(announcementId)}`, { method: 'PATCH', body: input })
+      : api<Announcement>('/admin/announcements', { method: 'POST', body: input }),
+  endAnnouncement: (announcementId: string) =>
+    api<Announcement>(`/admin/announcements/${id(announcementId)}/end`, { method: 'POST' }),
+  deleteAnnouncement: (announcementId: string) =>
+    api<{ ok: true }>(`/admin/announcements/${id(announcementId)}`, { method: 'DELETE' }),
+  featureHost: (input: { userId: string; note?: string | null; endsAt?: string | null }) =>
+    api<FeaturedHost>('/admin/featured-hosts', { method: 'POST', body: input }),
+  unfeatureHost: (userId: string) => api<{ ok: true }>(`/admin/featured-hosts/${id(userId)}`, { method: 'DELETE' }),
+  reorderFeaturedHosts: (userIds: string[]) =>
+    api<{ items: FeaturedHost[] }>('/admin/featured-hosts/order', { method: 'PUT', body: { userIds } }),
+  addUserNote: (userId: string, text: string) =>
+    api<UserNote>(`/admin/users/${id(userId)}/notes`, { method: 'POST', body: { text } }),
+  deleteUserNote: (userId: string, noteId: string) =>
+    api<{ ok: true }>(`/admin/users/${id(userId)}/notes/${id(noteId)}`, { method: 'DELETE' }),
   deleteUser: (userId: string, reason: string) =>
     api<{ ok: true }>(`/admin/users/${id(userId)}/delete`, { method: 'POST', body: { reason } }),
   changeRole: (userId: string, platformRole: PlatformRole, permissions?: AdminPermission[]) =>

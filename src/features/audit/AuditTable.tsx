@@ -335,6 +335,19 @@ function TargetLink({ entry, onNavigate }: { entry: AuditEntry; onNavigate: () =
           {label}
         </Link>
       )
+    case 'CAMPAIGN':
+    case 'ANNOUNCEMENT':
+      if (!auth.can('VIEW_CAMPAIGNS')) break
+      return (
+        <Link
+          to="/campaigns"
+          search={{ tab: entry.targetType === 'ANNOUNCEMENT' ? 'banners' : undefined }}
+          onClick={onNavigate}
+          className={className}
+        >
+          {label}
+        </Link>
+      )
     case 'HOSTING_REASON':
       if (!auth.can('VIEW_HOSTING_RESTRICTIONS')) break
       return (

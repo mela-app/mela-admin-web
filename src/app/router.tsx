@@ -16,6 +16,8 @@ import { AppShell } from './AppShell'
 import { NoAccessPage, NotFoundPage, RouteErrorPage, RoutePending } from './RouteStates'
 import {
   alertsSearch,
+  analyticsSearch,
+  campaignsSearch,
   appUpdatesSearch,
   auditSearch,
   hostingSearch,
@@ -201,6 +203,22 @@ const dataRoute = createRoute({
   component: lazyRouteComponent(() => import('../features/data/DataPage'), 'DataPage'),
 })
 
+const analyticsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/analytics',
+  validateSearch: analyticsSearch,
+  beforeLoad: needs('VIEW_ANALYTICS'),
+  component: lazyRouteComponent(() => import('../features/analytics/AnalyticsPage'), 'AnalyticsPage'),
+})
+
+const campaignsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/campaigns',
+  validateSearch: campaignsSearch,
+  beforeLoad: needs('VIEW_CAMPAIGNS'),
+  component: lazyRouteComponent(() => import('../features/campaigns/CampaignsPage'), 'CampaignsPage'),
+})
+
 // A switch reaches every host's next live: super admins only, like Data.
 const videoRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -233,6 +251,8 @@ const routeTree = rootRoute.addChildren([
     accountRoute,
     dataRoute,
     videoRoute,
+    analyticsRoute,
+    campaignsRoute,
   ]),
 ])
 

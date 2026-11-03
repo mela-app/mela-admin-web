@@ -237,6 +237,33 @@ live's Chat log: pick some, or **Pick all shown**, then **Delete N
 messages** - one confirmation, then `POST /admin/chat/messages/delete`
 (500 at a time; the console splits a bigger pick).
 
+### The user page: the whole record (2026-11)
+
+An account's page shows its **Safety record** - open reports about them,
+reports acted on, reports they sent, whether their hosting is paused now,
+how many blocked them, staff notes - each number opening its tab:
+
+- **Reports**: cases about them (their profile, lives, messages) or sent by
+  them, every status, each opening the case on the Reports page
+  (`GET /admin/reports?status=ALL&reportedUserId=` / `&reporterId=`).
+- **Hosting**: every restriction they had, with any appeal; the side card
+  pauses their hosting from here, about one of their recent lives.
+- **Blocks**: who they blocked, and who blocked them (`GET /admin/users/:id/blocks?direction=blocked|blockedBy`) -
+  many people blocking one account is often worth a look.
+- **Notes**: staff's private notes on the account - what was said or agreed
+  outside the console (`GET/POST /admin/users/:id/notes`, `DELETE
+  /admin/users/:id/notes/:noteId`). Anyone who can see the account reads and
+  adds them; only the author or a super admin removes one. Never shown to the
+  person; adding and removing are audited (`user.note_added`,
+  `user.note_deleted`), the text stays on the note.
+
+### Analytics and Campaigns (2026-11)
+
+Growth > **Analytics** (`VIEW_ANALYTICS`): active users, coming back,
+watching, top hosts, install sources - docs/features/analytics.md. Growth >
+**Campaigns** (`VIEW_CAMPAIGNS` / `MANAGE_CAMPAIGNS`): push campaigns to an
+audience, in-app banners, featured hosts - docs/features/campaigns.md.
+
 ### Video (super admins)
 
 The **Video** page (`/video`, under System; 2026-10) switches where new lives
@@ -328,13 +355,17 @@ GET    /admin/messages/conversations/:id?from&to[&cursor&limit]  (audited)  [VIE
 GET    /admin/chat/hosts?from&to[&q&page&pageSize]                         [VIEW_LIVES]
 GET    /admin/chat/hosts/:hostId?from&to[&q&status&cursor&limit]           [VIEW_LIVES]
 POST   /admin/chat/messages/delete ({messageIds: 1-500})                   [MANAGE_LIVES]
-GET    /admin/reports[?status=OPEN|ACTIONED|DISMISSED&type&page&pageSize] | /admin/reports/:id  [VIEW_REPORTS]
+GET    /admin/reports[?status=OPEN|ACTIONED|DISMISSED|ALL&type&reportedUserId&reporterId&page&pageSize] | /admin/reports/:id  [VIEW_REPORTS]
 POST   /admin/reports/:id/resolve ({outcome: ACTIONED|DISMISSED, note?})   [MANAGE_REPORTS]
 POST   /admin/reports/:id/remove-message   (a reported private message)    [MANAGE_REPORTS]
 GET/POST/PATCH /admin/hosting-reasons | /admin/hosting-restrictions[/:id[/lift|/answer]]  [VIEW_/MANAGE_HOSTING_RESTRICTIONS] (docs/features/hosting-restrictions.md)
 GET    /admin/app-releases[?page&pageSize]                                 [VIEW_APP_RELEASES]
 POST   /admin/app-releases ({platform, version, build, notes, downloadUrl, required?})  [MANAGE_APP_RELEASES]
 PATCH  /admin/app-releases/:id ({notes?, downloadUrl?, required?}) | DELETE /admin/app-releases/:id  [MANAGE_APP_RELEASES]
+GET    /admin/users/:id/blocks[?direction=blocked|blockedBy] | /admin/users/:id/notes  [VIEW_USERS]
+POST   /admin/users/:id/notes ({text}) | DELETE /admin/users/:id/notes/:noteId  [VIEW_USERS; delete: author or super admin]
+GET    /admin/analytics?from&to                                            [VIEW_ANALYTICS] (docs/features/analytics.md)
+GET/POST /admin/campaigns | /admin/announcements | /admin/featured-hosts   [VIEW_/MANAGE_CAMPAIGNS] (docs/features/campaigns.md)
 GET    /admin/data                                                         (super admin)
 POST   /admin/data/clear ({dataSet, olderThanDays?, password})             (super admin)
 POST   /admin/data/reset ({password, keep?: [appUpdates|bannedPhrases|auditLog]})  (super admin)

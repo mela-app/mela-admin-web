@@ -21,6 +21,9 @@ export type AdminPermission =
   | 'MANAGE_REPORTS'
   | 'VIEW_HOSTING_RESTRICTIONS'
   | 'MANAGE_HOSTING_RESTRICTIONS'
+  | 'VIEW_ANALYTICS'
+  | 'VIEW_CAMPAIGNS'
+  | 'MANAGE_CAMPAIGNS'
 export type UserStatus = 'ACTIVE' | 'SUSPENDED'
 export type SessionPlatform = 'ANDROID' | 'IOS' | 'WEB' | 'UNKNOWN'
 export type StreamStatus = 'SCHEDULED' | 'LIVE' | 'ENDED' | 'LOCKED'
@@ -227,6 +230,141 @@ export interface UserDetail extends Omit<UserRow, 'streamCount' | 'followerCount
     blockedBy: number
   }
   liveStream: { id: string; title: string; startedAt: string } | null
+  // What the record tabs hold, in numbers.
+  safety: UserSafety
+}
+
+export interface UserSafety {
+  reportsAgainst: { open: number; actioned: number; dismissed: number }
+  reportsMade: number
+  restrictions: { total: number; inForce: number }
+  blocked: number
+  blockedBy: number
+  notes: number
+}
+
+export interface BlockPerson extends Person {
+  status: UserStatus
+}
+
+// One block on the user page: the other person, and when.
+export interface UserBlockRow {
+  id: string
+  createdAt: string
+  person: BlockPerson
+}
+
+// Staff's private note about an account.
+export interface UserNote {
+  id: string
+  text: string
+  createdAt: string
+  author: BlockPerson | null
+}
+
+// The Analytics page (GET /admin/analytics): days are UTC.
+// A type, not an interface: the charts take any row of numbers.
+export type AnalyticsDay = {
+  day: string
+  newUsers: number
+  activeUsers: number
+  lives: number
+  liveMinutes: number
+  viewerMinutes: number
+  installs: number
+}
+
+export interface AnalyticsOverview {
+  from: string
+  to: string
+  // Activity is counted from this day on; null: nothing yet.
+  trackingSince: string | null
+  totals: {
+    users: number
+    newUsers: number
+    lives: number
+    liveMinutes: number
+    viewerMinutes: number
+    installs: number
+    dailyActive: number
+    weeklyActive: number
+    monthlyActive: number
+    // Daily as a share of monthly active users, 0-100.
+    stickiness: number | null
+    monthlyByPlatform: Array<{ platform: SessionPlatform; users: number }>
+  }
+  days: AnalyticsDay[]
+  // Newest week first; null: that window hasn't passed for anyone yet.
+  retention: Array<{ week: string; size: number; d1: number | null; d7: number | null; d30: number | null }>
+  topHosts: Array<{
+    host: Person
+    lives: number
+    viewerMinutes: number
+    viewers: number
+    likes: number
+    peakViewers: number
+  }>
+  installSources: Array<{ source: string; count: number }>
+}
+
+// Who a push campaign is for; every part narrows it, empty is everyone.
+export interface CampaignAudience {
+  platform?: 'ANDROID' | 'IOS'
+  appVersions?: string[]
+  hostsOnly?: boolean
+  activeWithinDays?: number
+  inactiveForDays?: number
+}
+
+export type CampaignStatus = 'SCHEDULED' | 'SENDING' | 'SENT' | 'CANCELLED' | 'FAILED'
+
+export interface PushCampaign {
+  id: string
+  title: string
+  body: string
+  openPath: string | null
+  audience: CampaignAudience
+  status: CampaignStatus
+  scheduledAt: string
+  sentAt: string | null
+  recipientCount: number
+  openCount: number
+  // 0-100; null before it was sent to anyone.
+  openRate: number | null
+  failureReason: string | null
+  createdAt: string
+  createdBy: Person | null
+}
+
+export type AnnouncementTone = 'INFO' | 'SUCCESS' | 'WARNING'
+
+export interface Announcement {
+  id: string
+  title: string
+  message: string
+  tone: AnnouncementTone
+  linkUrl: string | null
+  linkLabel: string | null
+  platform: 'ANDROID' | 'IOS' | null
+  startsAt: string
+  endsAt: string | null
+  dismissible: boolean
+  createdAt: string
+  createdBy: Person | null
+}
+
+export interface FeaturedHost {
+  id: string
+  userId: string
+  position: number
+  note: string | null
+  endsAt: string | null
+  createdAt: string
+  // Ended ones stay listed until removed.
+  active: boolean
+  liveStreamId: string | null
+  user: Person & { status: UserStatus }
+  createdBy: Person | null
 }
 
 export interface StaffMember {

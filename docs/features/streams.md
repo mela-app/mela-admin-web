@@ -128,6 +128,18 @@ with `403 HOSTING_RESTRICTED`; a running live ends with
 `StreamEndReason.HOST_RESTRICTED` and the user leaves any stage
 (`StreamsService.handleHostingRestricted`). Watching is never affected.
 
+## Floating live: picture in picture (Android, client request, 2026-10)
+
+While a live is open - hosting it, or watching (a guest on stage too) - leaving the app doesn't stop it: the live shrinks into a small window over other apps (Telegram, the home screen…), and tapping that window opens Mela full screen again.
+
+- **When**: Home, Recents or switching apps (Android 12+ by itself - `setAutoEnterEnabled`; Android 8-11 on Home/Recents via `onUserLeaveHint`). **Share link** during a live opens Mela's own **Share to** sheet (`ShareAppsSheet` in `share_live.dart`) over the live: Copy link, the installed apps that take a link (`LivePip.shareTargets` - Telegram, WhatsApp, Messenger, Facebook, Instagram, TikTok… first), and More (the system share sheet). Picking an app opens it in its own task (`LivePip.shareTo`, `FLAG_ACTIVITY_NEW_TASK`), which counts as leaving Mela - so the live floats over that app. The system share sheet can't do this: it opens the picked app inside Mela's task, and floating before it opens hid the sheet. iOS, or no app list: the system share sheet.
+- **What it shows** (`pip/live_pip_view.dart`): only the main video - the host's camera for the host, the host's video for a viewer - with a LIVE badge; "Paused", "The host stepped away" or "Live ended" instead when there's no live picture. The video keeps its `GlobalKey`, so the player isn't rebuilt going in or out.
+- **The host keeps broadcasting**: a floating window is still visible, so Android keeps the camera and microphone and the host is not "away". If another app takes the camera meanwhile, it reopens when the host opens Mela again.
+- **Closing the window** (its X, or dragging it away): a viewer leaves the live; a guest keeps their seat, and a host's live goes on as when the app is in the background ("stepped away", ended if they don't come back).
+- **Only while a live is open**: the screens turn it on (`LivePip.setAutoEnter`) once live/watching and off when the live ends or the screen closes, so the rest of the app never floats.
+- Not where the phone has no picture in picture, or the person turned it off for Mela (Settings > Apps > Mela > Picture-in-picture): leaving works as before. **iOS**: not yet - it needs the video SDKs' own picture-in-picture renderers.
+- Native: `android/app/src/main/kotlin/com/melalive/app/LivePip.kt` (channel `mela_live/pip`: `setAutoEnter`, `shareTargets`, `shareTo`; events `changed {active, closed}`), `MainActivity` (`onUserLeaveHint`, `onPictureInPictureModeChanged`), and `android:supportsPictureInPicture="true"` in the manifest.
+
 ## How to add to this feature
 
 - **A new room-ban scope**: add the value to the Prisma `RoomBanScope` enum (+ migration) and a branch whichever side of `RoomBansService.ban()`/`isBanned()` needs it - both already switch on `scope`, not a boolean.

@@ -56,6 +56,8 @@ correctly. Deliberately one-directional: whether the *other side* has
 blocked you isn't surfaced (following/joining are refused either way
 regardless, without revealing which side did it).
 
+**Blocked accounts** (client request, 2026-10): search hides anyone blocked either way, so a blocked person's profile couldn't be found again to unblock them. `GET /users/me/blocked` (`SocialService.listBlocked`, cursor-paged on the block id, newest first) lists the people *this* account blocked, with `blockedAt` - never who blocked it. The app's **Settings > Privacy > Blocked users** (`blocked_accounts_screen.dart`, route `/settings/blocked`) lists them with **Unblock** (confirmed; the chat filter updates at once). Unblocking doesn't bring back the follows the block removed.
+
 **What a block hides, server-side, both ways** (client feedback,
 2026-10): the blocker's profile and follow lists 404 for the person they
 blocked (`findPublicProfile`, `assertCanViewDetails`) - the blocker still

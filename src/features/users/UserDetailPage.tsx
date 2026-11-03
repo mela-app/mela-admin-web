@@ -13,12 +13,14 @@ import { Avatar, Identifier, PageHeader, RelativeTime, Tabs } from '../../compon
 import { useAuth } from '../../lib/auth-context'
 import { formatDate, formatDateTime, formatNumber } from '../../lib/format'
 import { PLATFORM_LABELS } from '../../lib/labels'
-import { useUser, useUserSessions } from '../../lib/queries'
+import { useStreams, useUser, useUserSessions } from '../../lib/queries'
 import type { UserDetail } from '../../lib/types'
 import { ScopedAuditTable } from '../audit/AuditTable'
+import { HostHostingCard } from '../hosting/HostingStatus'
 import { HostStreamsTable } from '../streams/StreamsTable'
 import { ChangeRoleDialog, EditAccessDialog, EditProfileDialog } from './ProfileDialogs'
 import { DeleteUserDialog, ReinstateUserDialog, SignOutEverywhereDialog, SuspendUserDialog } from './UserActionDialogs'
+import { UserBlocksPanel, UserNotesPanel, UserReportsPanel, UserRestrictionsPanel } from './UserRecordPanels'
 
 const routeApi = getRouteApi('/_app/users/$userId')
 
@@ -57,13 +59,26 @@ function UserView({ user }: { user: UserDetail }) {
   const canManage = !self && (!staffTarget || auth.isSuperAdmin) && auth.can('MANAGE_USERS')
   const suspended = user.status === 'SUSPENDED'
   const close = () => setDialog(null)
+  const safety = user.safety
+  const reportsAbout = safety.reportsAgainst.open + safety.reportsAgainst.actioned + safety.reportsAgainst.dismissed
   const tabs = (
     [
       { value: 'activity', label: 'Activity', shown: auth.can('VIEW_AUDIT_LOG') },
+      { value: 'reports', label: 'Reports', count: reportsAbout, shown: auth.can('VIEW_REPORTS') },
+      {
+        value: 'restrictions',
+        label: 'Hosting',
+        count: safety.restrictions.total,
+        shown: auth.can('VIEW_HOSTING_RESTRICTIONS'),
+      },
+      { value: 'blocks', label: 'Blocks', count: safety.blocked + safety.blockedBy, shown: true },
+      { value: 'notes', label: 'Notes', count: safety.notes, shown: true },
       { value: 'lives', label: 'Lives', count: user.counts.streams, shown: auth.can('VIEW_LIVES') },
       { value: 'sessions', label: 'Devices', count: user.counts.sessions, shown: true },
     ] satisfies Array<{ value: UserTab; label: string; count?: number; shown: boolean }>
   ).filter((each) => each.shown)
+  const openTab = (next: UserTab) =>
+    void navigate({ search: { tab: next === 'activity' ? undefined : next }, replace: true })
   const tab = tabs.find((each) => each.value === (search.tab ?? 'activity'))?.value ?? tabs[0].value
 
   return (
@@ -179,18 +194,24 @@ function UserView({ user }: { user: UserDetail }) {
             <Tabs<UserTab>
               label="Account records"
               value={tab}
-              onChange={(next) => void navigate({ search: { tab: next === 'activity' ? undefined : next }, replace: true })}
+              onChange={openTab}
               tabs={tabs}
             />
           </div>
           {tab === 'activity' && (
             <ScopedAuditTable filter={{ userId: user.id }} emptyText="Nothing has been recorded for this account yet." />
           )}
+          {tab === 'reports' && <UserReportsPanel user={user} />}
+          {tab === 'restrictions' && <UserRestrictionsPanel userId={user.id} />}
+          {tab === 'blocks' && <UserBlocksPanel user={user} />}
+          {tab === 'notes' && <UserNotesPanel userId={user.id} />}
           {tab === 'lives' && <HostStreamsTable hostId={user.id} />}
           {tab === 'sessions' && <SessionsPanel userId={user.id} />}
         </Card>
 
         <div className="space-y-6">
+          <SafetyCard user={user} onOpen={openTab} />
+          {!staffTarget && <HostingCard user={user} />}
           {staffTarget && (
             <Card
               title="Console access"
@@ -252,6 +273,78 @@ function UserView({ user }: { user: UserDetail }) {
       <ChangeRoleDialog user={user} open={dialog === 'role'} onClose={close} />
       <EditAccessDialog user={user} open={dialog === 'access'} onClose={close} />
     </>
+  )
+}
+
+/**
+ * Their record at a glance - each number opens its tab. Red when something
+ * waits on the team or many people pushed back on them.
+ */
+function SafetyCard({ user, onOpen }: { user: UserDetail; onOpen(tab: UserTab): void }) {
+  const auth = useAuth()
+  const { reportsAgainst, restrictions } = user.safety
+  const items: Array<{ label: string; value: number; tab: UserTab; alert?: boolean; shown: boolean }> = [
+    {
+      label: 'Open reports about them',
+      value: reportsAgainst.open,
+      tab: 'reports',
+      alert: reportsAgainst.open > 0,
+      shown: auth.can('VIEW_REPORTS'),
+    },
+    {
+      label: 'Reports acted on',
+      value: reportsAgainst.actioned,
+      tab: 'reports',
+      alert: reportsAgainst.actioned > 0,
+      shown: auth.can('VIEW_REPORTS'),
+    },
+    { label: 'Reports they sent', value: user.safety.reportsMade, tab: 'reports', shown: auth.can('VIEW_REPORTS') },
+    {
+      label: 'Hosting paused now',
+      value: restrictions.inForce,
+      tab: 'restrictions',
+      alert: restrictions.inForce > 0,
+      shown: auth.can('VIEW_HOSTING_RESTRICTIONS'),
+    },
+    { label: 'Blocked by', value: user.safety.blockedBy, tab: 'blocks', shown: true },
+    { label: 'Staff notes', value: user.safety.notes, tab: 'notes', shown: true },
+  ]
+  return (
+    <Card title="Safety record">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+        {items
+          .filter((item) => item.shown)
+          .map((item) => (
+            <div key={item.label}>
+              <dt className="text-xs text-zinc-500">{item.label}</dt>
+              <dd>
+                <button
+                  type="button"
+                  onClick={() => onOpen(item.tab)}
+                  className={`text-sm font-medium tabular-nums hover:underline ${item.alert ? 'text-red-600' : 'text-zinc-900'}`}
+                >
+                  {formatNumber(item.value)}
+                </button>
+              </dd>
+            </div>
+          ))}
+      </dl>
+    </Card>
+  )
+}
+
+// Whether they can host, and pausing it - about one of their recent lives.
+function HostingCard({ user }: { user: UserDetail }) {
+  const auth = useAuth()
+  const lives = useStreams({ hostId: user.id, pageSize: 10 })
+  if (!auth.can('VIEW_HOSTING_RESTRICTIONS')) return null
+  const choices = [...(lives.data?.items ?? [])]
+    .map((live) => ({ id: live.id, title: live.title, startedAt: live.startedAt }))
+    .reverse()
+  return (
+    <Card>
+      <HostHostingCard host={user} lives={choices} />
+    </Card>
   )
 }
 

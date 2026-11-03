@@ -1,5 +1,6 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
 import {
+  ChartNoAxesCombined,
   Database,
   Flag,
   LayoutDashboard,
@@ -10,6 +11,7 @@ import {
   MessagesSquare,
   Radio,
   ScrollText,
+  Send,
   Video,
   Settings,
   ShieldBan,
@@ -48,6 +50,8 @@ type NavTarget =
   | '/messages'
   | '/data'
   | '/video'
+  | '/analytics'
+  | '/campaigns'
 
 interface NavItem {
   to: NavTarget
@@ -169,6 +173,13 @@ function Sidebar() {
         },
         { to: '/alerts', label: 'Alerts', icon: Megaphone, needs: 'VIEW_ALERTS' },
         { to: '/phrases', label: 'Banned phrases', icon: ShieldBan, needs: 'VIEW_PHRASES' },
+      ],
+    },
+    {
+      label: 'Growth',
+      items: [
+        { to: '/analytics', label: 'Analytics', icon: ChartNoAxesCombined, needs: 'VIEW_ANALYTICS' },
+        { to: '/campaigns', label: 'Campaigns', icon: Send, needs: 'VIEW_CAMPAIGNS' },
       ],
     },
     {

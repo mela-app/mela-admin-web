@@ -85,10 +85,25 @@ export function usersSearch(search: Record<string, unknown>): UsersSearch {
   }
 }
 
-export type UserTab = 'activity' | 'lives' | 'sessions'
+export type UserTab = 'activity' | 'reports' | 'restrictions' | 'blocks' | 'notes' | 'lives' | 'sessions'
 
 export function userSearch(search: Record<string, unknown>): { tab?: UserTab } {
-  return { tab: oneOf(search.tab, ['lives', 'sessions'] as const) }
+  return {
+    tab: oneOf(search.tab, ['reports', 'restrictions', 'blocks', 'notes', 'lives', 'sessions'] as const),
+  }
+}
+
+// The Analytics page's stretch: the last 7, 30 or 90 days (30 when left out).
+export type AnalyticsRange = '7' | '30' | '90'
+
+export function analyticsSearch(search: Record<string, unknown>): { range?: AnalyticsRange } {
+  return { range: oneOf(search.range, ['7', '90'] as const) }
+}
+
+export type CampaignsTab = 'push' | 'banners' | 'featured'
+
+export function campaignsSearch(search: Record<string, unknown>): { tab?: CampaignsTab } {
+  return { tab: oneOf(search.tab, ['banners', 'featured'] as const) }
 }
 
 export interface AlertsSearch extends PageSearch {

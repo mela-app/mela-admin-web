@@ -47,6 +47,18 @@ Two people who **follow each other** (friends, plan §6.10) can send each other 
 
 Message text never goes into domain-event listeners other than the gateway, and the audit trail doesn't record what anyone wrote. Staff read it only through the console's **Private messages** page (below), and every conversation they open there is audited.
 
+## Editing and deleting (2026-11)
+
+Hold a message in a conversation:
+
+- **Your own**: Copy; **Edit** for 15 minutes after sending (`PATCH /v1/me/conversations/:userId/messages/:messageId {text}` - the same checks as sending: banned phrases, the pace, links; `editedAt` set, "edited" under the text); **Delete for everyone** (asked first; `DELETE …/messages/:messageId?for=everyone` - gone for good, as when staff erase one; `message:deleted` to both, the recipient's badge recounted).
+- **Anyone's**: Copy; **Delete for me** (`DELETE …/messages/:messageId?for=me` - `hiddenBySender` / `hiddenByRecipient`: gone from that person's history and inbox only; a received unread one counts as read).
+- **A friend's**: Report, as before.
+
+**Delete chat** - the conversation's ⋮ menu, or holding it in the inbox (asked first): `DELETE /v1/me/conversations/:userId/messages` hides every message for that person; the conversation leaves their inbox until a new message arrives; the other person keeps everything.
+
+Live: `message:edited {message}` to both people; `message:hidden {partnerId, messageId|null}` (with `message:unread_count`) to the person's own devices only - the other person sees nothing change. The console's Private messages still shows what someone deleted only for themselves; what was deleted for everyone is gone there too.
+
 ## Mobile (`lib/features/messages`)
 
 - **`MessagesRepository`** (`data/`, `messagesRepositoryProvider`): the five endpoints. Models in `domain/direct_message.dart` (`DirectMessage`, `Conversation`, `ConversationHistory`, and the realtime payloads `NewDirectMessage`/`DirectMessagesRead`; `MessageEvents` names the events).

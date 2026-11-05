@@ -1,8 +1,14 @@
-import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo } from 'react'
-import { api } from './api'
-import { dayBoundary } from './format'
-import { useToast } from './toast-context'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useMemo } from "react";
+import { api } from "./api";
+import { dayBoundary } from "./format";
+import { useToast } from "./toast-context";
 import type {
   AdminAlert,
   AnalyticsOverview,
@@ -53,7 +59,7 @@ import type {
   VideoOverview,
   VideoProviderKind,
   VideoSettings,
-} from './types'
+} from "./types";
 import type {
   AuditSearch,
   LiveChatSearch,
@@ -61,73 +67,80 @@ import type {
   ReportsSearch,
   StreamsSearch,
   UsersSearch,
-} from '../app/search'
-import { DEFAULT_PAGE_SIZE } from './search'
+} from "../app/search";
+import { DEFAULT_PAGE_SIZE } from "./search";
 
-const id = (value: string) => encodeURIComponent(value)
+const id = (value: string) => encodeURIComponent(value);
 const paging = (search: { page?: number; pageSize?: number }) => ({
   page: search.page ?? 1,
   pageSize: search.pageSize ?? DEFAULT_PAGE_SIZE,
-})
+});
 
 // ---- Reads ----------------------------------------------------------------
 
 export function useOverview() {
   return useQuery({
-    queryKey: ['overview'],
-    queryFn: ({ signal }) => api<Overview>('/admin/overview', { signal }),
+    queryKey: ["overview"],
+    queryFn: ({ signal }) => api<Overview>("/admin/overview", { signal }),
     refetchInterval: 30_000,
-  })
+  });
 }
 
 export function useStreams(search: StreamsSearch) {
   return useQuery({
-    queryKey: ['streams', search],
+    queryKey: ["streams", search],
     queryFn: ({ signal }) =>
-      api<Page<StreamRow>>('/admin/streams', {
+      api<Page<StreamRow>>("/admin/streams", {
         signal,
         query: {
           q: search.q,
           status: search.status,
           hostId: search.hostId,
-          from: dayBoundary(search.from, 'start'),
-          to: dayBoundary(search.to, 'end'),
+          from: dayBoundary(search.from, "start"),
+          to: dayBoundary(search.to, "end"),
           sort: search.sort,
           order: search.order,
           ...paging(search),
         },
       }),
     placeholderData: keepPreviousData,
-    refetchInterval: search.status === 'LIVE' ? 15_000 : false,
-  })
+    refetchInterval: search.status === "LIVE" ? 15_000 : false,
+  });
 }
 
 export function useAlertTargets(enabled = true) {
   return useQuery({
-    queryKey: ['alerts', 'targets'],
-    queryFn: ({ signal }) => api<{ items: AlertTarget[] }>('/admin/alerts/targets', { signal }),
+    queryKey: ["alerts", "targets"],
+    queryFn: ({ signal }) =>
+      api<{ items: AlertTarget[] }>("/admin/alerts/targets", { signal }),
     enabled,
     refetchInterval: 20_000,
-  })
+  });
 }
 
 export function useStream(streamId: string) {
   return useQuery({
-    queryKey: ['stream', streamId],
-    queryFn: ({ signal }) => api<StreamDetail>(`/admin/streams/${id(streamId)}`, { signal }),
-    refetchInterval: (query) => (query.state.data?.status === 'LIVE' ? 10_000 : false),
-  })
+    queryKey: ["stream", streamId],
+    queryFn: ({ signal }) =>
+      api<StreamDetail>(`/admin/streams/${id(streamId)}`, { signal }),
+    refetchInterval: (query) =>
+      query.state.data?.status === "LIVE" ? 10_000 : false,
+  });
 }
 
 export interface ChatLogFilter {
-  status?: ChatModerationStatus
-  q?: string
+  status?: ChatModerationStatus;
+  q?: string;
 }
 
 /** Newest first, 50 at a time; while the live runs the loaded pages refresh. */
-export function useChatLog(streamId: string, filter: ChatLogFilter, live: boolean) {
+export function useChatLog(
+  streamId: string,
+  filter: ChatLogFilter,
+  live: boolean,
+) {
   return useInfiniteQuery({
-    queryKey: ['stream', streamId, 'chat', filter],
+    queryKey: ["stream", streamId, "chat", filter],
     queryFn: ({ signal, pageParam }) =>
       api<ChatLogPage>(`/admin/streams/${id(streamId)}/chat`, {
         signal,
@@ -136,14 +149,14 @@ export function useChatLog(streamId: string, filter: ChatLogFilter, live: boolea
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     refetchInterval: live ? 5_000 : false,
-  })
+  });
 }
 
 export function useUsers(search: UsersSearch) {
   return useQuery({
-    queryKey: ['users', search],
+    queryKey: ["users", search],
     queryFn: ({ signal }) =>
-      api<Page<UserRow>>('/admin/users', {
+      api<Page<UserRow>>("/admin/users", {
         signal,
         query: {
           q: search.q,
@@ -155,47 +168,63 @@ export function useUsers(search: UsersSearch) {
         },
       }),
     placeholderData: keepPreviousData,
-  })
+  });
 }
 
 export function useUser(userId: string) {
   return useQuery({
-    queryKey: ['user', userId],
-    queryFn: ({ signal }) => api<UserDetail>(`/admin/users/${id(userId)}`, { signal }),
-  })
+    queryKey: ["user", userId],
+    queryFn: ({ signal }) =>
+      api<UserDetail>(`/admin/users/${id(userId)}`, { signal }),
+  });
 }
 
 export function useUserSessions(userId: string, enabled: boolean) {
   return useQuery({
-    queryKey: ['user', userId, 'sessions'],
-    queryFn: ({ signal }) => api<{ items: DeviceSession[] }>(`/admin/users/${id(userId)}/sessions`, { signal }),
+    queryKey: ["user", userId, "sessions"],
+    queryFn: ({ signal }) =>
+      api<{ items: DeviceSession[] }>(`/admin/users/${id(userId)}/sessions`, {
+        signal,
+      }),
     enabled,
-  })
+  });
 }
 
 /** Report cases about this account, or the ones it reported - every status, latest first. */
-export function useUserReports(userId: string, direction: 'against' | 'by', page: number, enabled: boolean) {
+export function useUserReports(
+  userId: string,
+  direction: "against" | "by",
+  page: number,
+  enabled: boolean,
+) {
   return useQuery({
-    queryKey: ['reports', 'user', userId, direction, page],
+    queryKey: ["reports", "user", userId, direction, page],
     queryFn: ({ signal }) =>
-      api<Page<ReportCaseRow>>('/admin/reports', {
+      api<Page<ReportCaseRow>>("/admin/reports", {
         signal,
         query: {
-          status: 'ALL',
-          ...(direction === 'against' ? { reportedUserId: userId } : { reporterId: userId }),
+          status: "ALL",
+          ...(direction === "against"
+            ? { reportedUserId: userId }
+            : { reporterId: userId }),
           page,
           pageSize: 10,
         },
       }),
     enabled,
     placeholderData: keepPreviousData,
-  })
+  });
 }
 
 /** Who this account blocked, or who blocked it. */
-export function useUserBlocks(userId: string, direction: 'blocked' | 'blockedBy', page: number, enabled: boolean) {
+export function useUserBlocks(
+  userId: string,
+  direction: "blocked" | "blockedBy",
+  page: number,
+  enabled: boolean,
+) {
   return useQuery({
-    queryKey: ['user', userId, 'blocks', direction, page],
+    queryKey: ["user", userId, "blocks", direction, page],
     queryFn: ({ signal }) =>
       api<Page<UserBlockRow>>(`/admin/users/${id(userId)}/blocks`, {
         signal,
@@ -203,40 +232,54 @@ export function useUserBlocks(userId: string, direction: 'blocked' | 'blockedBy'
       }),
     enabled,
     placeholderData: keepPreviousData,
-  })
+  });
 }
 
 /** Staff's private notes on this account, newest first. */
 export function useUserNotes(userId: string, enabled: boolean) {
   return useQuery({
-    queryKey: ['user', userId, 'notes'],
-    queryFn: ({ signal }) => api<{ items: UserNote[] }>(`/admin/users/${id(userId)}/notes`, { signal }),
+    queryKey: ["user", userId, "notes"],
+    queryFn: ({ signal }) =>
+      api<{ items: UserNote[] }>(`/admin/users/${id(userId)}/notes`, {
+        signal,
+      }),
     enabled,
-  })
+  });
 }
 
 export function useStaff() {
   return useQuery({
-    queryKey: ['staff'],
-    queryFn: ({ signal }) => api<{ items: StaffMember[] }>('/admin/staff', { signal }),
-  })
+    queryKey: ["staff"],
+    queryFn: ({ signal }) =>
+      api<{ items: StaffMember[] }>("/admin/staff", { signal }),
+  });
 }
 
 export function useAlerts(page: number) {
   return useQuery({
-    queryKey: ['alerts', page],
+    queryKey: ["alerts", page],
     queryFn: ({ signal }) =>
-      api<Page<AdminAlert>>('/admin/alerts', { signal, query: { page, pageSize: DEFAULT_PAGE_SIZE } }),
+      api<Page<AdminAlert>>("/admin/alerts", {
+        signal,
+        query: { page, pageSize: DEFAULT_PAGE_SIZE },
+      }),
     placeholderData: keepPreviousData,
-  })
+  });
 }
 
-export function usePhrases(filter: { q?: string; severity?: BannedPhraseSeverity }) {
+export function usePhrases(filter: {
+  q?: string;
+  severity?: BannedPhraseSeverity;
+}) {
   return useQuery({
-    queryKey: ['phrases', filter],
-    queryFn: ({ signal }) => api<{ items: BannedPhrase[] }>('/admin/banned-phrases', { signal, query: filter }),
+    queryKey: ["phrases", filter],
+    queryFn: ({ signal }) =>
+      api<{ items: BannedPhrase[] }>("/admin/banned-phrases", {
+        signal,
+        query: filter,
+      }),
     placeholderData: keepPreviousData,
-  })
+  });
 }
 
 export function auditQuery(search: AuditSearch) {
@@ -250,52 +293,73 @@ export function auditQuery(search: AuditSearch) {
     targetType: search.targetType,
     targetId: search.targetId,
     streamId: search.streamId,
-    from: dayBoundary(search.from, 'start'),
-    to: dayBoundary(search.to, 'end'),
-  }
+    from: dayBoundary(search.from, "start"),
+    to: dayBoundary(search.to, "end"),
+  };
 }
 
 export function useAuditLog(search: AuditSearch) {
   return useQuery({
-    queryKey: ['audit', search],
+    queryKey: ["audit", search],
     queryFn: ({ signal }) =>
-      api<Page<AuditEntry>>('/admin/audit-logs', { signal, query: { ...auditQuery(search), ...paging(search) } }),
+      api<Page<AuditEntry>>("/admin/audit-logs", {
+        signal,
+        query: { ...auditQuery(search), ...paging(search) },
+      }),
     placeholderData: keepPreviousData,
-  })
+  });
 }
 
 export function useAuditCatalog() {
   return useQuery({
-    queryKey: ['audit-catalog'],
-    queryFn: ({ signal }) => api<AuditCatalog>('/admin/audit-logs/catalog', { signal }),
+    queryKey: ["audit-catalog"],
+    queryFn: ({ signal }) =>
+      api<AuditCatalog>("/admin/audit-logs/catalog", { signal }),
     staleTime: Infinity,
-  })
+  });
 }
 
 export function useMySessions() {
   return useQuery({
-    queryKey: ['me', 'sessions'],
-    queryFn: ({ signal }) => api<{ items: DeviceSession[] }>('/admin/me/sessions', { signal }),
-  })
+    queryKey: ["me", "sessions"],
+    queryFn: ({ signal }) =>
+      api<{ items: DeviceSession[] }>("/admin/me/sessions", { signal }),
+  });
 }
 
 interface DayRange {
-  from: string
-  to: string
+  from: string;
+  to: string;
 }
 
 /** Who wrote to whom in [range] - no text; today's list keeps itself current. */
-export function usePrivateConversations(search: MessagesSearch, range: DayRange, isToday: boolean) {
+export function usePrivateConversations(
+  search: MessagesSearch,
+  range: DayRange,
+  isToday: boolean,
+) {
   return useQuery({
-    queryKey: ['private-messages', 'conversations', search.q, search.userId, paging(search), range],
+    queryKey: [
+      "private-messages",
+      "conversations",
+      search.q,
+      search.userId,
+      paging(search),
+      range,
+    ],
     queryFn: ({ signal }) =>
-      api<PrivateConversationPage>('/admin/messages/conversations', {
+      api<PrivateConversationPage>("/admin/messages/conversations", {
         signal,
-        query: { ...range, q: search.q, userId: search.userId, ...paging(search) },
+        query: {
+          ...range,
+          q: search.q,
+          userId: search.userId,
+          ...paging(search),
+        },
       }),
     placeholderData: keepPreviousData,
     refetchInterval: isToday ? 30_000 : false,
-  })
+  });
 }
 
 /**
@@ -304,38 +368,50 @@ export function usePrivateConversations(search: MessagesSearch, range: DayRange,
  */
 export function usePrivateTranscript(conversationId: string, range: DayRange) {
   return useInfiniteQuery({
-    queryKey: ['private-messages', 'transcript', conversationId, range],
+    queryKey: ["private-messages", "transcript", conversationId, range],
     queryFn: ({ signal, pageParam }) =>
-      api<PrivateTranscript>(`/admin/messages/conversations/${id(conversationId)}`, {
-        signal,
-        query: { ...range, cursor: pageParam, limit: 100 },
-      }),
+      api<PrivateTranscript>(
+        `/admin/messages/conversations/${id(conversationId)}`,
+        {
+          signal,
+          query: { ...range, cursor: pageParam, limit: 100 },
+        },
+      ),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-  })
+  });
 }
 
 /** Hosts whose lives had chat in [range]; today's list keeps itself current. */
-export function useLiveChatHosts(search: LiveChatSearch, range: DayRange, isToday: boolean) {
+export function useLiveChatHosts(
+  search: LiveChatSearch,
+  range: DayRange,
+  isToday: boolean,
+) {
   return useQuery({
-    queryKey: ['live-chat', 'hosts', search.q, paging(search), range],
+    queryKey: ["live-chat", "hosts", search.q, paging(search), range],
     queryFn: ({ signal }) =>
-      api<LiveChatHostPage>('/admin/chat/hosts', {
+      api<LiveChatHostPage>("/admin/chat/hosts", {
         signal,
         query: { ...range, q: search.q, ...paging(search) },
       }),
     placeholderData: keepPreviousData,
     refetchInterval: isToday ? 30_000 : false,
-  })
+  });
 }
 
 /** One host's chat in [range], oldest first, 100 at a time; today's keeps itself current. */
-export function useHostChat(hostId: string, range: DayRange, filter: ChatLogFilter, isToday: boolean) {
+export function useHostChat(
+  hostId: string,
+  range: DayRange,
+  filter: ChatLogFilter,
+  isToday: boolean,
+) {
   return useInfiniteQuery({
-    queryKey: ['live-chat', 'host', hostId, range, filter],
+    queryKey: ["live-chat", "host", hostId, range, filter],
     queryFn: ({ signal, pageParam }) =>
       api<HostChat>(`/admin/chat/hosts/${id(hostId)}`, {
         signal,
@@ -346,118 +422,159 @@ export function useHostChat(hostId: string, range: DayRange, filter: ChatLogFilt
     // A new filter keeps the old messages up until the new ones arrive.
     placeholderData: keepPreviousData,
     refetchInterval: isToday ? 15_000 : false,
-  })
+  });
 }
 
 export function useAppReleases(page: number) {
   return useQuery({
-    queryKey: ['app-releases', page],
+    queryKey: ["app-releases", page],
     queryFn: ({ signal }) =>
-      api<AppReleasePage>('/admin/app-releases', { signal, query: { page, pageSize: DEFAULT_PAGE_SIZE } }),
+      api<AppReleasePage>("/admin/app-releases", {
+        signal,
+        query: { page, pageSize: DEFAULT_PAGE_SIZE },
+      }),
     placeholderData: keepPreviousData,
-  })
+  });
 }
 
 /** Growth over a stretch of UTC days (YYYY-MM-DD, both included). */
 export function useAnalytics(from: string, to: string) {
   return useQuery({
-    queryKey: ['analytics', from, to],
-    queryFn: ({ signal }) => api<AnalyticsOverview>('/admin/analytics', { signal, query: { from, to } }),
+    queryKey: ["analytics", from, to],
+    queryFn: ({ signal }) =>
+      api<AnalyticsOverview>("/admin/analytics", {
+        signal,
+        query: { from, to },
+      }),
     placeholderData: keepPreviousData,
     refetchInterval: 5 * 60_000,
-  })
+  });
 }
 
 /** Push campaigns, the latest first; those going out keep themselves current. */
 export function useCampaigns(page: number) {
   return useQuery({
-    queryKey: ['campaigns', page],
+    queryKey: ["campaigns", page],
     queryFn: ({ signal }) =>
-      api<Page<PushCampaign>>('/admin/campaigns', { signal, query: { page, pageSize: DEFAULT_PAGE_SIZE } }),
+      api<Page<PushCampaign>>("/admin/campaigns", {
+        signal,
+        query: { page, pageSize: DEFAULT_PAGE_SIZE },
+      }),
     placeholderData: keepPreviousData,
     refetchInterval: (query) =>
-      query.state.data?.items.some((row) => row.status === 'SCHEDULED' || row.status === 'SENDING') ? 15_000 : 60_000,
-  })
+      query.state.data?.items.some(
+        (row) => row.status === "SCHEDULED" || row.status === "SENDING",
+      )
+        ? 15_000
+        : 60_000,
+  });
 }
 
 /** How many [audience] reaches right now. */
 export function useAudienceSize(audience: CampaignAudience, enabled: boolean) {
   return useQuery({
-    queryKey: ['campaigns', 'audience', audience],
+    queryKey: ["campaigns", "audience", audience],
     queryFn: ({ signal }) =>
-      api<{ count: number }>('/admin/campaigns/audience-size', { signal, method: 'POST', body: { audience } }),
+      api<{ count: number }>("/admin/campaigns/audience-size", {
+        signal,
+        method: "POST",
+        body: { audience },
+      }),
     enabled,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
-  })
+  });
 }
 
 export function useAnnouncements(page: number) {
   return useQuery({
-    queryKey: ['announcements', page],
+    queryKey: ["announcements", page],
     queryFn: ({ signal }) =>
-      api<Page<Announcement>>('/admin/announcements', { signal, query: { page, pageSize: DEFAULT_PAGE_SIZE } }),
+      api<Page<Announcement>>("/admin/announcements", {
+        signal,
+        query: { page, pageSize: DEFAULT_PAGE_SIZE },
+      }),
     placeholderData: keepPreviousData,
-  })
+  });
 }
 
 export function useFeaturedHosts() {
   return useQuery({
-    queryKey: ['featured-hosts'],
-    queryFn: ({ signal }) => api<{ items: FeaturedHost[] }>('/admin/featured-hosts', { signal }),
+    queryKey: ["featured-hosts"],
+    queryFn: ({ signal }) =>
+      api<{ items: FeaturedHost[] }>("/admin/featured-hosts", { signal }),
     refetchInterval: 60_000,
-  })
+  });
 }
 
 /** How much of each kind of data is stored - super admins only. */
 export function useDataOverview() {
   return useQuery({
-    queryKey: ['data'],
-    queryFn: ({ signal }) => api<DataOverview>('/admin/data', { signal }),
-  })
+    queryKey: ["data"],
+    queryFn: ({ signal }) => api<DataOverview>("/admin/data", { signal }),
+  });
 }
 
 /** Reported things, the urgent and latest first; the open ones keep themselves current. */
 export function useReports(search: ReportsSearch) {
-  const status = search.status ?? 'OPEN'
+  const status = search.status ?? "OPEN";
   return useQuery({
-    queryKey: ['reports', status, search.type, paging(search)],
+    queryKey: ["reports", status, search.type, paging(search)],
     queryFn: ({ signal }) =>
-      api<Page<ReportCaseRow>>('/admin/reports', {
+      api<Page<ReportCaseRow>>("/admin/reports", {
         signal,
         query: { status, type: search.type, ...paging(search) },
       }),
     placeholderData: keepPreviousData,
-    refetchInterval: status === 'OPEN' ? 30_000 : false,
-  })
+    refetchInterval: status === "OPEN" ? 30_000 : false,
+  });
 }
 
 /** One case: what was reported, every report about it, and what became of it. */
 export function useReport(caseId: string) {
   return useQuery({
-    queryKey: ['report', caseId],
-    queryFn: ({ signal }) => api<ReportCaseDetail>(`/admin/reports/${id(caseId)}`, { signal }),
-  })
+    queryKey: ["report", caseId],
+    queryFn: ({ signal }) =>
+      api<ReportCaseDetail>(`/admin/reports/${id(caseId)}`, { signal }),
+  });
 }
 
 /** Hosting restrictions - for one live, or a list filtered by state; the waiting ones keep themselves current. */
 export function useHostingRestrictions(
-  filter: { state?: HostingRestrictionFilter; streamId?: string; userId?: string; q?: string },
+  filter: {
+    state?: HostingRestrictionFilter;
+    streamId?: string;
+    userId?: string;
+    q?: string;
+  },
   paging_: { page?: number; pageSize?: number } = {},
   enabled = true,
 ) {
-  const state = filter.state ?? 'all'
+  const state = filter.state ?? "all";
   return useQuery({
-    queryKey: ['hosting-restrictions', state, filter.streamId, filter.userId, filter.q, paging(paging_)],
+    queryKey: [
+      "hosting-restrictions",
+      state,
+      filter.streamId,
+      filter.userId,
+      filter.q,
+      paging(paging_),
+    ],
     queryFn: ({ signal }) =>
-      api<HostingRestrictionPage>('/admin/hosting-restrictions', {
+      api<HostingRestrictionPage>("/admin/hosting-restrictions", {
         signal,
-        query: { state, streamId: filter.streamId, userId: filter.userId, q: filter.q, ...paging(paging_) },
+        query: {
+          state,
+          streamId: filter.streamId,
+          userId: filter.userId,
+          q: filter.q,
+          ...paging(paging_),
+        },
       }),
     enabled,
     placeholderData: keepPreviousData,
-    refetchInterval: state === 'waiting' || filter.streamId ? 30_000 : false,
-  })
+    refetchInterval: state === "waiting" || filter.streamId ? 30_000 : false,
+  });
 }
 
 /**
@@ -465,196 +582,380 @@ export function useHostingRestrictions(
  * lists. Nothing is asked of staff who can't see hosting restrictions.
  */
 export function useHostingInForce(userIds: string[], enabled: boolean) {
-  const ids = [...new Set(userIds)].sort().slice(0, 100)
+  const ids = [...new Set(userIds)].sort().slice(0, 100);
   const query = useQuery({
-    queryKey: ['hosting-in-force', ids],
+    queryKey: ["hosting-in-force", ids],
     queryFn: ({ signal }) =>
-      api<HostingInForce[]>('/admin/hosting-restrictions/in-force', { signal, query: { userIds: ids.join(',') } }),
+      api<HostingInForce[]>("/admin/hosting-restrictions/in-force", {
+        signal,
+        query: { userIds: ids.join(",") },
+      }),
     enabled: enabled && ids.length > 0,
     placeholderData: keepPreviousData,
     refetchInterval: 60_000,
-  })
-  const data = query.data
-  return useMemo(() => new Map((data ?? []).map((row) => [row.userId, row])), [data])
+  });
+  const data = query.data;
+  return useMemo(
+    () => new Map((data ?? []).map((row) => [row.userId, row])),
+    [data],
+  );
 }
 
 /** One restriction: what the host was told, the appeal conversation, and their others. */
 export function useHostingRestriction(restrictionId: string) {
   return useQuery({
-    queryKey: ['hosting-restriction', restrictionId],
+    queryKey: ["hosting-restriction", restrictionId],
     queryFn: ({ signal }) =>
-      api<HostingRestrictionDetail>(`/admin/hosting-restrictions/${id(restrictionId)}`, { signal }),
+      api<HostingRestrictionDetail>(
+        `/admin/hosting-restrictions/${id(restrictionId)}`,
+        { signal },
+      ),
     refetchInterval: 30_000,
-  })
+  });
 }
 
 /** The reasons staff saved, to pick from when restricting. */
 export function useHostingReasons(includeArchived = false) {
   return useQuery({
-    queryKey: ['hosting-reasons', includeArchived],
+    queryKey: ["hosting-reasons", includeArchived],
     queryFn: ({ signal }) =>
-      api<HostingReason[]>('/admin/hosting-reasons', {
+      api<HostingReason[]>("/admin/hosting-reasons", {
         signal,
-        query: { archived: includeArchived ? 'true' : undefined },
+        query: { archived: includeArchived ? "true" : undefined },
       }),
-  })
+  });
 }
 
 /** Where new lives go, and Agora's free minutes - super admins only; kept current. */
 export function useVideoOverview() {
   return useQuery({
-    queryKey: ['video'],
-    queryFn: ({ signal }) => api<VideoOverview>('/admin/video', { signal }),
+    queryKey: ["video"],
+    queryFn: ({ signal }) => api<VideoOverview>("/admin/video", { signal }),
     refetchInterval: 30_000,
-  })
+  });
 }
 
 // ---- Writes ---------------------------------------------------------------
 
 export interface AnnouncementInput {
-  title: string
-  message: string
-  tone: Announcement['tone']
-  linkUrl: string | null
-  linkLabel: string | null
-  platform: Announcement['platform']
-  startsAt: string
-  endsAt: string | null
-  dismissible: boolean
+  title: string;
+  message: string;
+  tone: Announcement["tone"];
+  linkUrl: string | null;
+  linkLabel: string | null;
+  platform: Announcement["platform"];
+  startsAt: string;
+  endsAt: string | null;
+  dismissible: boolean;
 }
 
 export const actions = {
   lockStream: (streamId: string, reason: string) =>
-    api<StreamDetail>(`/admin/streams/${id(streamId)}/lock`, { method: 'POST', body: { reason } }),
-  unlockStream: (streamId: string) => api<StreamDetail>(`/admin/streams/${id(streamId)}/unlock`, { method: 'POST' }),
+    api<StreamDetail>(`/admin/streams/${id(streamId)}/lock`, {
+      method: "POST",
+      body: { reason },
+    }),
+  unlockStream: (streamId: string) =>
+    api<StreamDetail>(`/admin/streams/${id(streamId)}/unlock`, {
+      method: "POST",
+    }),
   deleteMessage: (streamId: string, messageId: string) =>
-    api<{ ok: true }>(`/admin/streams/${id(streamId)}/chat/${id(messageId)}`, { method: 'DELETE' }),
+    api<{ ok: true }>(`/admin/streams/${id(streamId)}/chat/${id(messageId)}`, {
+      method: "DELETE",
+    }),
   deleteMessages: (messageIds: string[]) =>
-    api<{ deleted: number }>('/admin/chat/messages/delete', { method: 'POST', body: { messageIds } }),
+    api<{ deleted: number }>("/admin/chat/messages/delete", {
+      method: "POST",
+      body: { messageIds },
+    }),
 
   suspendUser: (userId: string, reason: string) =>
-    api<{ ok: true; lockedLives: number }>(`/admin/users/${id(userId)}/suspend`, { method: 'POST', body: { reason } }),
-  reinstateUser: (userId: string) => api<{ ok: true }>(`/admin/users/${id(userId)}/reinstate`, { method: 'POST' }),
+    api<{ ok: true; lockedLives: number }>(
+      `/admin/users/${id(userId)}/suspend`,
+      { method: "POST", body: { reason } },
+    ),
+  reinstateUser: (userId: string) =>
+    api<{ ok: true }>(`/admin/users/${id(userId)}/reinstate`, {
+      method: "POST",
+    }),
   revokeUserSessions: (userId: string) =>
-    api<{ ok: true; revoked: number }>(`/admin/users/${id(userId)}/sessions/revoke`, { method: 'POST' }),
+    api<{ ok: true; revoked: number }>(
+      `/admin/users/${id(userId)}/sessions/revoke`,
+      { method: "POST" },
+    ),
   // Super admins only, for someone who asked without the app.
   createCampaign: (input: {
-    title: string
-    body: string
-    openPath?: string
-    audience: CampaignAudience
-    scheduledAt?: string
-  }) => api<PushCampaign>('/admin/campaigns', { method: 'POST', body: input }),
+    title: string;
+    body: string;
+    openPath?: string;
+    audience: CampaignAudience;
+    scheduledAt?: string;
+  }) => api<PushCampaign>("/admin/campaigns", { method: "POST", body: input }),
   cancelCampaign: (campaignId: string) =>
-    api<PushCampaign>(`/admin/campaigns/${id(campaignId)}/cancel`, { method: 'POST' }),
-  saveAnnouncement: (announcementId: string | null, input: AnnouncementInput) =>
-    announcementId
-      ? api<Announcement>(`/admin/announcements/${id(announcementId)}`, { method: 'PATCH', body: input })
-      : api<Announcement>('/admin/announcements', { method: 'POST', body: input }),
-  endAnnouncement: (announcementId: string) =>
-    api<Announcement>(`/admin/announcements/${id(announcementId)}/end`, { method: 'POST' }),
-  deleteAnnouncement: (announcementId: string) =>
-    api<{ ok: true }>(`/admin/announcements/${id(announcementId)}`, { method: 'DELETE' }),
-  featureHost: (input: { userId: string; note?: string | null; endsAt?: string | null }) =>
-    api<FeaturedHost>('/admin/featured-hosts', { method: 'POST', body: input }),
-  unfeatureHost: (userId: string) => api<{ ok: true }>(`/admin/featured-hosts/${id(userId)}`, { method: 'DELETE' }),
-  reorderFeaturedHosts: (userIds: string[]) =>
-    api<{ items: FeaturedHost[] }>('/admin/featured-hosts/order', { method: 'PUT', body: { userIds } }),
-  addUserNote: (userId: string, text: string) =>
-    api<UserNote>(`/admin/users/${id(userId)}/notes`, { method: 'POST', body: { text } }),
-  deleteUserNote: (userId: string, noteId: string) =>
-    api<{ ok: true }>(`/admin/users/${id(userId)}/notes/${id(noteId)}`, { method: 'DELETE' }),
-  deleteUser: (userId: string, reason: string) =>
-    api<{ ok: true }>(`/admin/users/${id(userId)}/delete`, { method: 'POST', body: { reason } }),
-  changeRole: (userId: string, platformRole: PlatformRole, permissions?: AdminPermission[]) =>
-    api<{ ok: true }>(`/admin/users/${id(userId)}/role`, { method: 'PATCH', body: { platformRole, permissions } }),
-  changePermissions: (userId: string, permissions: AdminPermission[]) =>
-    api<{ ok: true; permissions: AdminPermission[] }>(`/admin/users/${id(userId)}/permissions`, {
-      method: 'PATCH',
-      body: { permissions },
+    api<PushCampaign>(`/admin/campaigns/${id(campaignId)}/cancel`, {
+      method: "POST",
     }),
+  deleteCampaign: (campaignId: string) =>
+    api<{ ok: true }>(`/admin/campaigns/${id(campaignId)}`, {
+      method: "DELETE",
+    }),
+  saveAnnouncement: (
+    announcementId: string | null,
+    input: AnnouncementInput,
+  ) =>
+    announcementId
+      ? api<Announcement>(`/admin/announcements/${id(announcementId)}`, {
+          method: "PATCH",
+          body: input,
+        })
+      : api<Announcement>("/admin/announcements", {
+          method: "POST",
+          body: input,
+        }),
+  endAnnouncement: (announcementId: string) =>
+    api<Announcement>(`/admin/announcements/${id(announcementId)}/end`, {
+      method: "POST",
+    }),
+  deleteAnnouncement: (announcementId: string) =>
+    api<{ ok: true }>(`/admin/announcements/${id(announcementId)}`, {
+      method: "DELETE",
+    }),
+  featureHost: (input: {
+    userId: string;
+    note?: string | null;
+    endsAt?: string | null;
+  }) =>
+    api<FeaturedHost>("/admin/featured-hosts", { method: "POST", body: input }),
+  unfeatureHost: (userId: string) =>
+    api<{ ok: true }>(`/admin/featured-hosts/${id(userId)}`, {
+      method: "DELETE",
+    }),
+  reorderFeaturedHosts: (userIds: string[]) =>
+    api<{ items: FeaturedHost[] }>("/admin/featured-hosts/order", {
+      method: "PUT",
+      body: { userIds },
+    }),
+  addUserNote: (userId: string, text: string) =>
+    api<UserNote>(`/admin/users/${id(userId)}/notes`, {
+      method: "POST",
+      body: { text },
+    }),
+  deleteUserNote: (userId: string, noteId: string) =>
+    api<{ ok: true }>(`/admin/users/${id(userId)}/notes/${id(noteId)}`, {
+      method: "DELETE",
+    }),
+  deleteUser: (userId: string, reason: string) =>
+    api<{ ok: true }>(`/admin/users/${id(userId)}/delete`, {
+      method: "POST",
+      body: { reason },
+    }),
+  changeRole: (
+    userId: string,
+    platformRole: PlatformRole,
+    permissions?: AdminPermission[],
+  ) =>
+    api<{ ok: true }>(`/admin/users/${id(userId)}/role`, {
+      method: "PATCH",
+      body: { platformRole, permissions },
+    }),
+  changePermissions: (userId: string, permissions: AdminPermission[]) =>
+    api<{ ok: true; permissions: AdminPermission[] }>(
+      `/admin/users/${id(userId)}/permissions`,
+      {
+        method: "PATCH",
+        body: { permissions },
+      },
+    ),
   editProfile: (
     userId: string,
-    body: { username?: string; displayName?: string; bio?: string; removeAvatar?: boolean; reason: string },
-  ) => api<UserDetail>(`/admin/users/${id(userId)}/profile`, { method: 'PATCH', body }),
-  createStaff: (body: { email: string; displayName: string; platformRole: StaffRole; permissions?: AdminPermission[] }) =>
+    body: {
+      username?: string;
+      displayName?: string;
+      bio?: string;
+      removeAvatar?: boolean;
+      reason: string;
+    },
+  ) =>
+    api<UserDetail>(`/admin/users/${id(userId)}/profile`, {
+      method: "PATCH",
+      body,
+    }),
+  createStaff: (body: {
+    email: string;
+    displayName: string;
+    platformRole: StaffRole;
+    permissions?: AdminPermission[];
+  }) =>
     api<{
-      user: { id: string; username: string; displayName: string; email: string; permissions: AdminPermission[] }
-      temporaryPassword: string
-    }>('/admin/staff', { method: 'POST', body }),
+      user: {
+        id: string;
+        username: string;
+        displayName: string;
+        email: string;
+        permissions: AdminPermission[];
+      };
+      temporaryPassword: string;
+    }>("/admin/staff", { method: "POST", body }),
 
-  sendAlert: (body: { scope: AlertScope; streamId?: string; message: string; severity: AlertSeverity }) =>
-    api<AdminAlert>('/admin/alerts', { method: 'POST', body }),
+  sendAlert: (body: {
+    scope: AlertScope;
+    streamId?: string;
+    message: string;
+    severity: AlertSeverity;
+  }) => api<AdminAlert>("/admin/alerts", { method: "POST", body }),
 
   addPhrase: (phrase: string, severity: BannedPhraseSeverity) =>
-    api<BannedPhrase>('/admin/banned-phrases', { method: 'POST', body: { phrase, severity } }),
-  updatePhrase: (phraseId: string, body: { phrase?: string; severity?: BannedPhraseSeverity }) =>
-    api<BannedPhrase>(`/admin/banned-phrases/${id(phraseId)}`, { method: 'PATCH', body }),
-  removePhrase: (phraseId: string) => api<{ ok: true }>(`/admin/banned-phrases/${id(phraseId)}`, { method: 'DELETE' }),
-  testPhrase: (text: string) => api<PhraseTestResult>('/admin/banned-phrases/test', { method: 'POST', body: { text } }),
+    api<BannedPhrase>("/admin/banned-phrases", {
+      method: "POST",
+      body: { phrase, severity },
+    }),
+  updatePhrase: (
+    phraseId: string,
+    body: { phrase?: string; severity?: BannedPhraseSeverity },
+  ) =>
+    api<BannedPhrase>(`/admin/banned-phrases/${id(phraseId)}`, {
+      method: "PATCH",
+      body,
+    }),
+  removePhrase: (phraseId: string) =>
+    api<{ ok: true }>(`/admin/banned-phrases/${id(phraseId)}`, {
+      method: "DELETE",
+    }),
+  testPhrase: (text: string) =>
+    api<PhraseTestResult>("/admin/banned-phrases/test", {
+      method: "POST",
+      body: { text },
+    }),
 
-  publishRelease: (body: { platform: AppPlatform; version: string; notes: string; required: boolean }) =>
-    api<AppRelease>('/admin/app-releases', { method: 'POST', body }),
-  updateRelease: (releaseId: string, body: { notes?: string; required?: boolean }) =>
-    api<AppRelease>(`/admin/app-releases/${id(releaseId)}`, { method: 'PATCH', body }),
+  publishRelease: (body: {
+    platform: AppPlatform;
+    version: string;
+    notes: string;
+    required: boolean;
+  }) => api<AppRelease>("/admin/app-releases", { method: "POST", body }),
+  updateRelease: (
+    releaseId: string,
+    body: { notes?: string; required?: boolean },
+  ) =>
+    api<AppRelease>(`/admin/app-releases/${id(releaseId)}`, {
+      method: "PATCH",
+      body,
+    }),
   withdrawRelease: (releaseId: string) =>
-    api<{ ok: true }>(`/admin/app-releases/${id(releaseId)}`, { method: 'DELETE' }),
+    api<{ ok: true }>(`/admin/app-releases/${id(releaseId)}`, {
+      method: "DELETE",
+    }),
 
-  updateMe: (displayName: string) => api<AdminView>('/admin/me', { method: 'PATCH', body: { displayName } }),
+  updateMe: (displayName: string) =>
+    api<AdminView>("/admin/me", { method: "PATCH", body: { displayName } }),
   changePassword: (currentPassword: string, newPassword: string) =>
-    api<AdminView>('/admin/me/password', { method: 'POST', body: { currentPassword, newPassword } }),
+    api<AdminView>("/admin/me/password", {
+      method: "POST",
+      body: { currentPassword, newPassword },
+    }),
   changeEmail: (email: string, currentPassword: string) =>
-    api<AdminView>('/admin/me/email', { method: 'POST', body: { email, currentPassword } }),
-  revokeMySession: (sessionId: string) => api<{ ok: true }>(`/admin/me/sessions/${id(sessionId)}`, { method: 'DELETE' }),
+    api<AdminView>("/admin/me/email", {
+      method: "POST",
+      body: { email, currentPassword },
+    }),
+  revokeMySession: (sessionId: string) =>
+    api<{ ok: true }>(`/admin/me/sessions/${id(sessionId)}`, {
+      method: "DELETE",
+    }),
 
-  clearData: (body: { dataSet: string; olderThanDays?: number; password: string }) =>
-    api<{ removed: number }>('/admin/data/clear', { method: 'POST', body }),
+  clearData: (body: {
+    dataSet: string;
+    olderThanDays?: number;
+    password: string;
+  }) => api<{ removed: number }>("/admin/data/clear", { method: "POST", body }),
   resetData: (body: { password: string; keep: KeepOnReset[] }) =>
-    api<{ usersRemoved: number }>('/admin/data/reset', { method: 'POST', body }),
+    api<{ usersRemoved: number }>("/admin/data/reset", {
+      method: "POST",
+      body,
+    }),
 
-  resolveReport: (caseId: string, outcome: 'ACTIONED' | 'DISMISSED', note?: string) =>
-    api<ReportCaseDetail>(`/admin/reports/${id(caseId)}/resolve`, { method: 'POST', body: { outcome, note } }),
+  resolveReport: (
+    caseId: string,
+    outcome: "ACTIONED" | "DISMISSED",
+    note?: string,
+  ) =>
+    api<ReportCaseDetail>(`/admin/reports/${id(caseId)}/resolve`, {
+      method: "POST",
+      body: { outcome, note },
+    }),
   removeReportedMessage: (caseId: string) =>
-    api<{ removed: boolean }>(`/admin/reports/${id(caseId)}/remove-message`, { method: 'POST' }),
+    api<{ removed: boolean }>(`/admin/reports/${id(caseId)}/remove-message`, {
+      method: "POST",
+    }),
 
   restrictHost: (body: {
-    userId: string
-    streamId?: string
-    reasonId?: string
-    title: string
-    message: string
-    note?: string
-    durationHours: number | null
-    saveAsReason?: boolean
-  }) => api<HostingRestrictionDetail>('/admin/hosting-restrictions', { method: 'POST', body }),
+    userId: string;
+    streamId?: string;
+    reasonId?: string;
+    title: string;
+    message: string;
+    note?: string;
+    durationHours: number | null;
+    saveAsReason?: boolean;
+  }) =>
+    api<HostingRestrictionDetail>("/admin/hosting-restrictions", {
+      method: "POST",
+      body,
+    }),
   liftRestriction: (restrictionId: string, reply?: string) =>
-    api<HostingRestrictionDetail>(`/admin/hosting-restrictions/${id(restrictionId)}/lift`, {
-      method: 'POST',
-      body: { reply },
-    }),
-  answerAppeal: (restrictionId: string, decision: 'KEEP' | 'ASK', text: string) =>
-    api<HostingRestrictionDetail>(`/admin/hosting-restrictions/${id(restrictionId)}/answer`, {
-      method: 'POST',
-      body: { decision, text },
-    }),
-  updateRestriction: (restrictionId: string, body: { endsAt?: string | null; note?: string | null }) =>
-    api<HostingRestrictionDetail>(`/admin/hosting-restrictions/${id(restrictionId)}`, { method: 'PATCH', body }),
+    api<HostingRestrictionDetail>(
+      `/admin/hosting-restrictions/${id(restrictionId)}/lift`,
+      {
+        method: "POST",
+        body: { reply },
+      },
+    ),
+  answerAppeal: (
+    restrictionId: string,
+    decision: "KEEP" | "ASK",
+    text: string,
+  ) =>
+    api<HostingRestrictionDetail>(
+      `/admin/hosting-restrictions/${id(restrictionId)}/answer`,
+      {
+        method: "POST",
+        body: { decision, text },
+      },
+    ),
+  updateRestriction: (
+    restrictionId: string,
+    body: { endsAt?: string | null; note?: string | null },
+  ) =>
+    api<HostingRestrictionDetail>(
+      `/admin/hosting-restrictions/${id(restrictionId)}`,
+      { method: "PATCH", body },
+    ),
   switchVideoProvider: (provider: VideoProviderKind, reason?: string) =>
-    api<VideoOverview>('/admin/video/switch', { method: 'POST', body: { provider, reason } }),
+    api<VideoOverview>("/admin/video/switch", {
+      method: "POST",
+      body: { provider, reason },
+    }),
   updateVideoSettings: (body: Partial<VideoSettings>) =>
-    api<VideoOverview>('/admin/video/settings', { method: 'PATCH', body }),
-  refreshAgoraReport: () => api<VideoOverview>('/admin/video/agora-report', { method: 'POST' }),
+    api<VideoOverview>("/admin/video/settings", { method: "PATCH", body }),
+  refreshAgoraReport: () =>
+    api<VideoOverview>("/admin/video/agora-report", { method: "POST" }),
   addHostingReason: (body: { title: string; message: string }) =>
-    api<HostingReason>('/admin/hosting-reasons', { method: 'POST', body }),
-  updateHostingReason: (reasonId: string, body: { title?: string; message?: string; archived?: boolean }) =>
-    api<HostingReason>(`/admin/hosting-reasons/${id(reasonId)}`, { method: 'PATCH', body }),
-}
+    api<HostingReason>("/admin/hosting-reasons", { method: "POST", body }),
+  updateHostingReason: (
+    reasonId: string,
+    body: { title?: string; message?: string; archived?: boolean },
+  ) =>
+    api<HostingReason>(`/admin/hosting-reasons/${id(reasonId)}`, {
+      method: "PATCH",
+      body,
+    }),
+};
 
 interface AdminMutationOptions<TResult, TVariables> {
   /** A confirmation toast on success. */
-  success?: string | ((result: TResult, variables: TVariables) => string)
+  success?: string | ((result: TResult, variables: TVariables) => string);
   /** Off when the caller shows the error itself, e.g. inside a dialog. */
-  toastErrors?: boolean
+  toastErrors?: boolean;
 }
 
 /**
@@ -663,19 +964,24 @@ interface AdminMutationOptions<TResult, TVariables> {
  */
 export function useAdminMutation<TVariables, TResult>(
   mutate: (variables: TVariables) => Promise<TResult>,
-  { success, toastErrors = true }: AdminMutationOptions<TResult, TVariables> = {},
+  {
+    success,
+    toastErrors = true,
+  }: AdminMutationOptions<TResult, TVariables> = {},
 ) {
-  const queryClient = useQueryClient()
-  const toast = useToast()
+  const queryClient = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: mutate,
     onSuccess: (result, variables) => {
-      if (success) toast.success(typeof success === 'function' ? success(result, variables) : success)
-      void queryClient.invalidateQueries()
+      if (success)
+        toast.success(
+          typeof success === "function" ? success(result, variables) : success,
+        );
+      void queryClient.invalidateQueries();
     },
     onError: (error) => {
-      if (toastErrors) toast.error(error)
+      if (toastErrors) toast.error(error);
     },
-  })
+  });
 }
-

@@ -19,7 +19,7 @@ A title (65), a message (240), optionally what a tap opens - a live or profile l
 
 Every audience is app users only, active accounts, with a phone that can get a push (a push token), who didn't turn off **News from Mela** (`notification_settings.pushAnnouncements`, a new toggle in the app's notification settings). The form shows how many it reaches right now (`POST /admin/campaigns/audience-size`), and sending asks again with that number.
 
-**Send now** or **Schedule** (the admin's own time). `CampaignsJobs` (every 30 s) sends what is due: a campaign is claimed first (`SCHEDULED` → `SENDING`, one instance wins), its recipients are read 500 at a time and queued on the push queue with `data: {type: CAMPAIGN, campaignId, path?}` (collapse key per campaign), then it's `SENT` with how many it reached - or `FAILED` with why. A scheduled campaign can be cancelled until it goes out. The audience is resolved when it goes out, not when it was scheduled.
+**Send now** or **Schedule** (the admin's own time). `CampaignsJobs` (every 30 s) sends what is due: a campaign is claimed first (`SCHEDULED` → `SENDING`, one instance wins), its recipients are read 500 at a time and queued on the push queue with `data: {type: CAMPAIGN, campaignId, path?}` (collapse key per campaign), then it's `SENT` with how many it reached - or `FAILED` with why. A scheduled campaign can be cancelled until it goes out. Any campaign not being sent right now can be **deleted** (with its opens): a scheduled one then never goes out; a sent one leaves the list, but pushes already delivered stay on phones. The audience is resolved when it goes out, not when it was scheduled.
 
 **Opened**: the app reports `POST /v1/me/campaigns/:id/opened` when someone opens it from the push (once per person; `push_campaign_opens`), and the list shows how many of those reached opened it. A campaign arriving while the app is open shows as a message with **Open**.
 
@@ -31,7 +31,7 @@ A title, a message, a kind (information, good news, warning), an optional button
 
 Hosts shown **first on For You** whenever they're live, in the team's order (arrows to move), unless their live is paused - then it's ranked like any other. Search and the Following tab are unchanged. Optional reason (staff only) and end time. Suspended accounts and staff can't be featured. `StreamsService.listLive` reads the list at most every 30 s; each live carries `featured: true`.
 
-Everything staff do here is in the audit log: `campaign.scheduled`, `campaign.cancelled`, `announcement.published|updated|ended|deleted`, `featured_host.added|removed|reordered`.
+Everything staff do here is in the audit log: `campaign.scheduled`, `campaign.cancelled`, `campaign.deleted`, `announcement.published|updated|ended|deleted`, `featured_host.added|removed|reordered`.
 
 ### Routes (under `/v1`)
 
@@ -40,6 +40,7 @@ GET    /admin/campaigns[?page&pageSize]                     [VIEW_CAMPAIGNS]
 POST   /admin/campaigns/audience-size ({audience})          [VIEW_CAMPAIGNS]
 POST   /admin/campaigns ({title, body, openPath?, audience, scheduledAt?})  [MANAGE_CAMPAIGNS]
 POST   /admin/campaigns/:id/cancel                          [MANAGE_CAMPAIGNS]
+DELETE /admin/campaigns/:id                                 [MANAGE_CAMPAIGNS]
 GET    /admin/announcements[?page&pageSize]                 [VIEW_CAMPAIGNS]
 POST   /admin/announcements | PATCH /admin/announcements/:id | POST /:id/end | DELETE /:id  [MANAGE_CAMPAIGNS]
 GET    /admin/featured-hosts                                [VIEW_CAMPAIGNS]
@@ -64,4 +65,4 @@ Unregister `CampaignsModule` (app and admin modules), `AdminCampaignsController`
 
 ## Tests
 
-Backend: `campaigns.service.spec.ts` (audience conditions, links, scheduling, claimed once, batches, failures, cancel only before sending, opens once, banners by platform and time, featuring rules), `streams.service.spec.ts` (featured first on For You in order, not when paused, not in search). Console: `CampaignsPage.test.tsx` (open rate, sending with the reach shown, view-only staff, publishing a banner, wording). Mobile: `console_reporting_test.dart` (a campaign push's route, banners read).
+Backend: `campaigns.service.spec.ts` (audience conditions, links, scheduling, claimed once, batches, failures, cancel only before sending, delete but not while sending, opens once, banners by platform and time, featuring rules), `streams.service.spec.ts` (featured first on For You in order, not when paused, not in search). Console: `CampaignsPage.test.tsx` (open rate, sending with the reach shown, view-only staff, publishing a banner, wording). Mobile: `console_reporting_test.dart` (a campaign push's route, banners read).

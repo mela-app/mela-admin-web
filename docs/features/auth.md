@@ -270,6 +270,16 @@ its `REVERSED_CLIENT_ID` as a URL scheme in `Info.plist`.
   session), the router goes to login, and "Your account was deleted."
   shows. A staff account is told it's deleted in the console.
 
+## Forgot password (2026-11)
+
+**Forgot password?** under the password on the log-in screen opens `/login/forgot-password` (`forgot_password_screen.dart`, `ForgotPasswordFlow`); the email typed on the log-in screen is carried over. It proves the email the same way sign-up does:
+
+1. Their email, a new password (8+ characters) and the same again; **Send link** - `IdentityVerifier.startEmailConfirmation(email, newPassword)`: Firebase emails a confirmation link.
+2. "Check your email": the app notices the tapped link by itself (every 4 s, and on coming back from the email app), or with **I've confirmed it**; the link can be sent again after 30 s, or another email used.
+3. `POST /v1/auth/password-reset {idToken, newPassword, platform}` (5 a minute): the token proves the email (`method: 'email'`, or a Google sign-in with it); the account with that email (any letter case) gets the new password, **every device is signed out**, and this one is signed in (tokens in the answer). `AccountPasswordChanged` with `confirmedWith: 'email'` - the "Your password was changed" notice and the audit entry. Then Firebase forgets them.
+
+Refused: no account with the email (`404 NO_ACCOUNT` - "Sign up instead", back to the form; they've proven the email, so saying so leaks nothing), a staff account (`403 STAFF_ACCOUNT` - the console), a suspended one (`403 ACCOUNT_SUSPENDED`). A Google-only account can set a password this way too, though Continue with Google needs none. Leaving half-way makes Firebase forget the email (`finish()`).
+
 ## Several accounts on one phone (2026-10)
 
 Like TikTok: up to 5 accounts signed in on one phone, switching with no

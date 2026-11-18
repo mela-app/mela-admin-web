@@ -9,6 +9,8 @@ import { buttonClasses } from '../../components/ui/button-styles'
 import { Button } from '../../components/ui/Button'
 import { Card, DescriptionList } from '../../components/ui/Card'
 import { Callout, EmptyState, ErrorState, Skeleton } from '../../components/ui/feedback'
+import { ImageViewer } from '../../components/ui/ImageViewer'
+import { isWebUrl } from '../../lib/web-url'
 import { Avatar, Identifier, PageHeader, RelativeTime, Tabs } from '../../components/ui/misc'
 import { useAuth } from '../../lib/auth-context'
 import { formatDate, formatDateTime, formatNumber } from '../../lib/format'
@@ -52,6 +54,7 @@ function UserView({ user }: { user: UserDetail }) {
   const search = routeApi.useSearch()
   const navigate = routeApi.useNavigate()
   const [dialog, setDialog] = useState<DialogName | null>(null)
+  const [viewingPicture, setViewingPicture] = useState(false)
 
   const self = auth.admin?.id === user.id
   const staffTarget = user.platformRole !== 'USER'
@@ -95,7 +98,19 @@ function UserView({ user }: { user: UserDetail }) {
         }
         title={
           <span className="flex items-center gap-3">
-            <Avatar name={user.displayName} url={user.avatarUrl} size="lg" />
+            {isWebUrl(user.avatarUrl) ? (
+              <button
+                type="button"
+                onClick={() => setViewingPicture(true)}
+                className="shrink-0 cursor-zoom-in rounded-full focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:outline-none"
+                aria-label="View profile picture"
+                title="View profile picture"
+              >
+                <Avatar name={user.displayName} url={user.avatarUrl} size="lg" />
+              </button>
+            ) : (
+              <Avatar name={user.displayName} url={user.avatarUrl} size="lg" />
+            )}
             <span className="min-w-0">
               <span className="block truncate">{user.displayName}</span>
               <span className="block text-sm font-normal text-zinc-500">@{user.username}</span>
@@ -270,6 +285,11 @@ function UserView({ user }: { user: UserDetail }) {
         onDeleted={() => void navigate({ to: '/users', search: {} })}
       />
       <EditProfileDialog user={user} open={dialog === 'edit'} onClose={close} />
+      <ImageViewer
+        url={viewingPicture ? (user.avatarUrl ?? null) : null}
+        alt={`${user.displayName}'s profile picture`}
+        onClose={() => setViewingPicture(false)}
+      />
       <ChangeRoleDialog user={user} open={dialog === 'role'} onClose={close} />
       <EditAccessDialog user={user} open={dialog === 'access'} onClose={close} />
     </>

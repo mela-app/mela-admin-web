@@ -3,6 +3,8 @@ import { Trash, Trash2, UserX } from 'lucide-react'
 import { MessageStatusBadge } from '../../components/StatusBadges'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Select } from '../../components/ui/forms'
+import { ImageThumb } from '../../components/ui/ImageViewer'
+import { isWebUrl } from '../../lib/web-url'
 import { Avatar } from '../../components/ui/misc'
 import { SearchInput } from '../../components/ui/SearchInput'
 import { useAuth } from '../../lib/auth-context'
@@ -119,18 +121,14 @@ export function ChatMessageRow({ message, hostId, onDelete, onSuspend, picked, o
           </time>
           <MessageStatusBadge status={message.moderationStatus} />
         </div>
-        {message.imageUrl && /^https?:\/\//.test(message.imageUrl) && (
-          <a href={message.imageUrl} target="_blank" rel="noopener noreferrer" className="mt-1 block w-fit">
-            <img
-              src={message.imageUrl}
+        {isWebUrl(message.imageUrl) && (
+          <div className="mt-1">
+            <ImageThumb
+              url={message.imageUrl}
               alt={`Photo from ${message.user.displayName}`}
-              loading="lazy"
-              className={cn(
-                'max-h-40 max-w-56 rounded-md border border-zinc-200 bg-zinc-100 object-contain',
-                message.moderationStatus === 'DELETED' && 'opacity-50',
-              )}
+              className={cn('max-h-40 max-w-56 object-contain', message.moderationStatus === 'DELETED' && 'opacity-50')}
             />
-          </a>
+          </div>
         )}
         {message.text && (
           <p

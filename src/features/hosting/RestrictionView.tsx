@@ -9,6 +9,8 @@ import { DescriptionList } from '../../components/ui/Card'
 import { ConfirmDialog } from '../../components/ui/Dialog'
 import { Callout, ErrorState, Skeleton } from '../../components/ui/feedback'
 import { Select, Textarea } from '../../components/ui/forms'
+import { ImageThumb } from '../../components/ui/ImageViewer'
+import { isWebUrl } from '../../lib/web-url'
 import { Avatar, RelativeTime } from '../../components/ui/misc'
 import { useAuth } from '../../lib/auth-context'
 import { cn } from '../../lib/cn'
@@ -260,14 +262,7 @@ function MessageItem({
         {message.imageUrls.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {message.imageUrls.filter(isWebUrl).map((url) => (
-              <a key={url} href={url} target="_blank" rel="noreferrer noopener">
-                <img
-                  src={url}
-                  alt="A picture the host sent"
-                  referrerPolicy="no-referrer"
-                  className="h-28 w-28 rounded-md border border-zinc-200 object-cover hover:opacity-90"
-                />
-              </a>
+              <ImageThumb key={url} url={url} alt="A picture the host sent" className="h-28 w-28 object-cover" />
             ))}
           </div>
         )}
@@ -400,9 +395,4 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
       <div className="mt-2.5">{children}</div>
     </section>
   )
-}
-
-// Only a real web address goes into an <img>.
-function isWebUrl(url: string): boolean {
-  return /^https?:\/\//i.test(url)
 }

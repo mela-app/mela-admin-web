@@ -127,8 +127,41 @@ directly. Each entry stores:
 - `category`, `action` (from `audit/audit-catalog.ts`) and `reason`;
 - the actor: `actorRole` plus a captured `actorLabel`;
 - the target: `targetType` plus a captured `targetLabel`;
-- the live it happened in (`streamId`), `metadata` (before/after values,
-  for example), and the request's IP and user agent.
+- the live it happened in (`streamId`), `metadata` (the action's details),
+  and the request's IP and user agent;
+- `before` and `after` (migration `20261120100000_audit_before_after`):
+  what the action changed, field by field. For a change, only the fields
+  that differ, on each side; for something created, `after` alone; for
+  something removed, `before` alone. Fields whose name looks like a secret
+  (password, token, hash, secret, credential) are stored as `[hidden]`, and
+  text is cut at 2,000 characters.
+
+**Before and after (client request, 2026-11).** Services build the change
+with `common/events/audit-changes.ts` - `changesBetween(old, new, fields)`,
+`created(row, fields)`, `removed(row, fields)` - and put it on the event as
+`changes`; the listener copies it with `changesEntry()`. Covered: the app
+profile (names, bio, picture, privacy, activity status) and a staff
+member's own name and email; staff edits of a profile, role, permissions,
+suspension; banners, campaigns, featured hosts (and their order), app
+releases, banned phrases, hosting restrictions and reasons, video settings
+and provider; a live's layout and board; moderator abilities; notification
+settings; personal live alerts; the Terms version accepted. The console's
+entry dialog shows them as a Before / After table; the CSV export has
+Before and After columns.
+
+**What's recorded.** Everything staff do in the console, and in the app:
+sign-up, sign-in and out, every account and privacy change, going live and
+joining a live (`stream.joined`), scheduling and reminders, the board,
+layout, guests (requests, invites, who said yes or no, moving and
+spotlighting), moderation (bans, mutes, moderators, recording), follows,
+blocks, personal chat mutes, reports, and private messages (`message.sent`
+/ `edited` / `deleted` / `hidden` - who and to whom, never the text).
+Live chat messages themselves aren't entries: they're kept in
+`chat_messages` and shown on the live's page, and a deletion or pin is
+audited. Neither are likes, push tokens, read receipts or the live's
+picture. A feature that has nothing else listening uses the
+`ActivityRecorded` event (`{action, actorId, target, changes, ...}`) with
+an action from the catalog; an unknown action is logged and dropped.
 
 The IP and user agent come from `common/request-context` (AsyncLocalStorage).
 Set `TRUST_PROXY` behind a reverse proxy, or every entry records the

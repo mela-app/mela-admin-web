@@ -421,6 +421,10 @@ export interface AuditEntry {
   streamId: string | null
   reason: string | null
   metadata: Record<string, unknown> | null
+  // What it changed: the fields that differ on each side; only after for
+  // something created, only before for something removed.
+  before: Record<string, unknown> | null
+  after: Record<string, unknown> | null
   ip: string | null
   userAgent: string | null
   createdAt: string

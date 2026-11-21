@@ -76,6 +76,18 @@ Every message view (`chat:new`, the send answer, history) carries `imageUrl` (nu
 
 **Mentioning anyone in the live** (client feedback, 2026-10): typing `@` already suggests everyone watching, not only who chatted (`GET /streams/:id/mention-suggestions` reads the viewers from presence). Every profile card opened in a live - from the viewer list, a chat name, a guest tile or the host's pill - also has a **Mention** button (`@`): it closes the card (and the viewer list) and puts `@username ` in the chat box with the keyboard up (`LiveMemberScope.mention` → `ChatComposerController.replyTo`). Not on one's own card, nor someone blocked.
 
+## Who joined, in the chat (client feedback, 2026-11)
+
+"X joined" (`viewer:joined`) used to be a pill under the chat for 3 s. It's
+now a line in the chat itself (`ArrivalLine`, `LiveChatController.addArrival`),
+where it happened between messages, so it can still be found a minute later:
+a tap puts `@username` in the composer to mention them, a long press opens
+their card. Only on this device - it isn't a message and isn't in history;
+the latest 100 are kept, those among trimmed messages go with them, a
+deleted message's joins move up to the one before it, and joins that came
+before the history loaded go after it. Hidden people (muted in chat,
+blocked) are left out. The "New messages" pill counts messages, not joins.
+
 ## How to add to this feature
 
 - **A new banned-phrase severity or matching rule**: `BannedPhrasesService.toFuzzyPattern()`/`match()`/`mask()` are the only places phrase matching happens - a new `BannedPhraseSeverity` enum value needs a Prisma migration plus a branch in `match()`'s REJECT-first sort and `mask()`'s masking logic.

@@ -47,6 +47,36 @@ Two people who **follow each other** (friends, plan §6.10) can send each other 
 
 Message text never goes into domain-event listeners other than the gateway, and the audit trail doesn't record what anyone wrote. Staff read it only through the console's **Private messages** page (below), and every conversation they open there is audited.
 
+## Online, last seen and typing (client request, 2026-11)
+
+Under a conversation's name: **typing...**, else **Online**, else **Last
+seen 5 min ago / today at 2:05 PM / yesterday / Mon / Sep 3**, else the
+@username.
+
+- **Online** means the app is open in front on one of their devices. The
+  app says `presence:state {away}` when it goes to the background and comes
+  back, and again on every reconnection (`core/realtime/app_presence.dart`,
+  watched at the app's root); a backgrounded app keeps its connection but
+  isn't online. The gateway works it out from the sockets in `user:{id}`
+  (`fetchSockets`, so it holds across API instances) and, when it changes,
+  saves `users.lastSeenAt` and tells `presence:{id}`.
+- **Watching**: the open conversation sends `presence:watch {userId}` and
+  gets `{hidden, online, lastSeenAt}`, then `presence:changed` as they come
+  and go; `presence:unwatch` on leaving; one at a time per socket.
+- **Privacy**: Profile privacy -> "Show when I'm online"
+  (`users.showActivityStatus`, `PATCH /users/me {showActivityStatus}`,
+  migration `20261120090000_activity_status`). As on WhatsApp, someone who
+  hides theirs sees nobody else's. Hidden also across a block, and for an
+  account that isn't active (`ActivityStatusService.visibleTo`). Turning it
+  off tells current watchers it's hidden (`presence:changed {hidden: true}`)
+  and the owner's own app watches again (`presence:refresh`).
+- **Typing**: the composer sends `dm:typing {userId, typing: true}` at most
+  every 3 s while there's text, and `typing: false` 4 s after the last
+  keystroke, on send, on clearing, or on leaving. The gateway passes it to
+  the other person's `user:{id}` room at most every 2 s per pair (nothing
+  across a block, never stored); their app clears it after 6 s without
+  word, or when the message arrives (`messages/application/partner_presence.dart`).
+
 ## Editing and deleting (2026-11)
 
 Hold a message in a conversation:

@@ -26,6 +26,10 @@ const TARGET_NAMES: Record<string, string> = {
   APP_RELEASE: 'App update',
   DATA: 'Stored data',
   REPORT: 'Report',
+  HOSTING_REASON: 'Hosting reason',
+  CAMPAIGN: 'Campaign',
+  ANNOUNCEMENT: 'Banner',
+  SCHEDULED_LIVE: 'Scheduled live',
 }
 
 interface AuditTableProps {
@@ -259,6 +263,7 @@ function AuditEntryDetails({ entry, onNavigate }: { entry: AuditEntry; onNavigat
           { label: 'Entry ID', value: <Identifier value={entry.id} /> },
         ]}
       />
+      <ChangesTable before={entry.before} after={entry.after} />
       {metaEntries.length > 0 && (
         <section>
           <h3 className="mb-2 text-xs font-medium text-zinc-500">Details</h3>
@@ -283,6 +288,58 @@ function AuditEntryDetails({ entry, onNavigate }: { entry: AuditEntry; onNavigat
       )}
     </div>
   )
+}
+
+// What changed, field by field: before on the left, after on the right.
+function ChangesTable({ before, after }: { before: Record<string, unknown> | null; after: Record<string, unknown> | null }) {
+  const fields = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])]
+  if (fields.length === 0) return null
+  const title = !before ? 'What it was set to' : !after ? 'What it was' : 'Before and after'
+  return (
+    <section>
+      <h3 className="mb-2 text-xs font-medium text-zinc-500">{title}</h3>
+      <div className="overflow-x-auto rounded-md border border-zinc-200">
+        <table className="w-full text-left text-[13px]">
+          <thead className="bg-zinc-50 text-xs text-zinc-500">
+            <tr>
+              <th className="px-3 py-2 font-medium">Field</th>
+              {before && <th className="px-3 py-2 font-medium">Before</th>}
+              {after && <th className="px-3 py-2 font-medium">After</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {fields.map((field) => (
+              <tr key={field} className="align-top">
+                <td className="px-3 py-2 font-medium whitespace-nowrap text-zinc-700">{fieldLabel(field)}</td>
+                {before && <td className="px-3 py-2 break-words whitespace-pre-wrap text-zinc-500">{changeValue(before[field])}</td>}
+                {after && <td className="px-3 py-2 break-words whitespace-pre-wrap text-zinc-900">{changeValue(after[field])}</td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+// displayName -> Display name; push_announcements -> Push announcements.
+function fieldLabel(field: string): string {
+  const words = field
+    .replace(/_/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
+
+function changeValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return 'Empty'
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'string') return ISO_TIME.test(value) ? formatPrecise(value) : value
+  if (Array.isArray(value)) return value.length === 0 ? 'None' : value.map((item) => (typeof item === 'string' ? item : JSON.stringify(item))).join(', ')
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
 }
 
 function TargetLink({ entry, onNavigate }: { entry: AuditEntry; onNavigate: () => void }) {

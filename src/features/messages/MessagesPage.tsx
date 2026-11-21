@@ -233,14 +233,26 @@ function Bubble({ message, sender, left }: { message: PrivateMessage; sender: Pe
     <li className={cn('flex gap-2.5', !left && 'flex-row-reverse')}>
       <Avatar name={sender.displayName} url={sender.avatarUrl} size="sm" />
       <div className={cn('flex max-w-[75%] flex-col', left ? 'items-start' : 'items-end')}>
-        <p
-          className={cn(
-            'rounded-2xl px-3.5 py-2 text-sm break-words whitespace-pre-wrap',
-            left ? 'rounded-tl-sm bg-zinc-100 text-zinc-900' : 'rounded-tr-sm bg-brand-700 text-white',
-          )}
-        >
-          {message.text}
-        </p>
+        {message.imageUrl && (
+          <a href={message.imageUrl} target="_blank" rel="noreferrer" className="mb-1 block" title="Open the photo">
+            <img
+              src={message.imageUrl}
+              alt={`Photo from ${sender.displayName}`}
+              loading="lazy"
+              className="max-h-60 max-w-60 rounded-xl border border-zinc-200 object-contain"
+            />
+          </a>
+        )}
+        {message.text && (
+          <p
+            className={cn(
+              'rounded-2xl px-3.5 py-2 text-sm break-words whitespace-pre-wrap',
+              left ? 'rounded-tl-sm bg-zinc-100 text-zinc-900' : 'rounded-tr-sm bg-brand-700 text-white',
+            )}
+          >
+            {message.text}
+          </p>
+        )}
         <p className="mt-1 text-[11px] text-zinc-500 tabular-nums">
           {sender.displayName} ·{' '}
           <time dateTime={message.createdAt} title={formatPrecise(message.createdAt)}>

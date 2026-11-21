@@ -88,6 +88,21 @@
     still showing), "Get the app" (the store link) and "Not now". After a
     minute of watching, the sheet comes up once by itself (once per tab:
     `sessionStorage` `mela.web.nudged`).
+  - **When the player can't load** (2026-11): the server-rendered page is
+    what's left, and it depends on the device (`deviceOf`, user agent).
+    Android keeps "Open in Mela" (the intent). A computer, or an iPhone
+    without an App Store listing, can't open the app, so it gets no app
+    link: a live still on says it couldn't load here, with **Try again**
+    (reloads) and **Get Mela for Android** (the Play listing, with the
+    install referrer). A request without a user agent keeps the plain
+    `{scheme}://live/<id>` link.
+  - **Serving it** (fixed 2026-11): the `mela-web` container's nginx listens
+    on **8080** (the Dockerfile's `EXPOSE` and health check), and
+    `docker-compose.yml` publishes it on the host as `WEB_PORT` (default
+    9005). The proxy in front of the API's domain sends `/web/*` to
+    `http://127.0.0.1:WEB_PORT`. nginx had been moved to 9005 while compose
+    still pointed at 80, so `/web/player.js` answered 502 and no browser
+    could play a live.
   - **Computers**: the video beside a side panel - chat, controls, and a
     QR code of the page ("Watch on your phone"; the code is drawn locally
     with `uqr`). Signed out, chatting, liking or following opens **Log in
@@ -216,7 +231,7 @@ first launch (Install Referrer API: `InstallReferrer.kt`, mobile
 the router's `from` - even when the friend opens Mela from Play instead of
 coming back to the page. Used once, and only within 7 days of the install.
 
-**Once Mela is public**, blank `ANDROID_TESTER_GROUP_URL`: every link goes
+**Mela is public now (2026-11)**: production must have `ANDROID_TESTER_GROUP_URL=` blank (and `ANDROID_INSTALL_URL` blank or the public listing). **Once Mela is public**, blank `ANDROID_TESTER_GROUP_URL`: every link goes
 to the Play listing again and `/get-mela` redirects there - no app release
 needed. The proxy must send `/get-mela` to the API, like `/live/*`.
 

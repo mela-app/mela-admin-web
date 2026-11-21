@@ -453,7 +453,9 @@ export interface PrivateConversationPage extends Page<PrivateConversationRow> {
 export interface PrivateMessage {
   id: string
   senderId: string
+  // A photo's caption - maybe empty.
   text: string
+  imageUrl: string | null
   createdAt: string
   readAt: string | null
 }

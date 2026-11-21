@@ -144,11 +144,40 @@ While a live is open - hosting it, or watching (a guest on stage too) - leaving 
 
 The app opens on **Home** (`home/home_shell.dart`), with five buttons along the bottom: **Home**, **Friends**, a **+** in the middle to go live, **Inbox** (its badge: unread messages + unread notifications) and **Profile**. A tab is built the first time it's opened and kept after that; Home tapped again goes back to the first live, refreshed; back from another tab returns to Home.
 
-- **Home** (`discovery/discovery_screen.dart`), laid out like TikTok's LIVE feed: the LIVE mark on the left (back to the first live), **Following | For You** and search on the right, banners under them; one live filling the screen, swipe up for the next. Each live (`discovery/live_cover.dart`) **plays muted** - its latest picture (the host's app sends one every minute or so) until the video comes in, or the host's photo without one - with "▮▮▮ Tap to watch LIVE" across the screen, a pink **LIVE now** pill, how many watch, and the host. A tap opens the live with sound and chat, still swiping through the same lives (`LiveFeedScreen`); back returns to the same live on Home. Pull down on the first live to refresh; the next page loads three lives before the end.
-- **The muted preview** (`discovery/live_preview_player.dart`, `POST /v1/streams/:id/preview`): only the live in view, only once a swipe has settled for about half a second (scrolling past lives connects to nothing), one at a time, stopped before a live opens, when another tab or screen covers Home, when the app goes to the background, and **not at all with Data Saver on** (the picture shows). The endpoint checks the same as joining (blocked, followers/friends lives, room bans) but announces nothing - no "X joined a live", no viewer counted (viewers are the realtime room, which a preview never enters), no stage seat freed - and mints the audience token for `preview-<userId>`, so tapping in isn't refused as the same person connecting twice. The video sessions take `silent: true`: no sound is subscribed at all (LiveKit subscribes video by hand, Agora `autoSubscribeAudio: false`). It does use video data and, on Agora, audience minutes while it plays - the Video page's minutes count only people in the realtime room, so Agora's own report is the true figure.
+- **Home** (`discovery/discovery_screen.dart`), laid out like TikTok's LIVE feed: the LIVE mark on the left (back to the first live), **Following | For You** and search on the right, banners under them; one live filling the screen, swipe up for the next. Each live (`discovery/live_cover.dart`) **plays, with a speaker button** - its latest picture (the host's app sends one every minute or so) until the video comes in, or the host's photo without one - with "▮▮▮ Tap to watch LIVE" across the screen, a pink **LIVE now** pill, how many watch, and the host. A tap opens the live with sound and chat, still swiping through the same lives (`LiveFeedScreen`); back returns to the same live on Home. Pull down on the first live to refresh; the next page loads three lives before the end.
+- **The preview** (`discovery/live_preview_player.dart`, `POST /v1/streams/:id/preview`): only the live in view, only once a swipe has settled for about half a second (scrolling past lives connects to nothing), one at a time, stopped before a live opens, when another tab or screen covers Home, when the app goes to the background, and **not at all with Data Saver on** (the picture shows). The endpoint checks the same as joining (blocked, followers/friends lives, room bans) but announces nothing - no "X joined a live", no viewer counted (viewers are the realtime room, which a preview never enters), no stage seat freed - and mints the audience token for `preview-<userId>`, so tapping in isn't refused as the same person connecting twice. It plays **with sound**, like TikTok, unless the speaker button is off (client feedback, 2026-11): the button on the cover and the one beside Pause on a live are the same setting (`live_stream/live_sound.dart`, remembered on the device). Off means nothing is received - `ViewerVideoSession.setSoundOn(false)` unsubscribes the audio (LiveKit) or mutes the remote streams (Agora) - which is true silence: on Android a live plays through the call volume, whose lowest step isn't zero. A session created `silent` starts with sound off (LiveKit subscribes by hand, Agora `autoSubscribeAudio: false`) and can be turned on. It does use video data and, on Agora, audience minutes while it plays - the Video page's minutes count only people in the realtime room, so Agora's own report is the true figure.
 - **Friends** (`home/friends_tab.dart`): who you follow that's live now (photos in a red ring), their lives coming up, and your friends - a tap opens their profile, the bubble a message.
 - **Inbox**: Activity (notifications) on top, then the conversations.
 - **Profile**: your own profile - Settings, switching account and logging out are there.
+
+## Staff watching (client request, 2026-11)
+
+Mela's safety team can watch any live to catch illegal activity, and nobody
+in the live can tell. Who: a super admin, or a platform moderator with
+`VIEW_LIVES` or `MANAGE_LIVES`, whose account is active
+(`streams/staff-watch.ts`, `StreamsService.isStaffWatcher`). They watch from
+the Mela app, signed in with their staff account - always unseen when it's
+someone else's live.
+
+- **Every live**: discovery lists every running live for them, followers'
+  and friends' lives too, whatever blocks (`listLive`); `canWatch` is true
+  for them, so joining, the Home preview and the realtime room let them in;
+  room bans and blocks don't keep them out.
+- **Unseen**: `POST /streams/:id/join` sends no `ViewerJoinedLive` (no
+  followers' "X joined a live"), and the gateway's `stream:join` doesn't add
+  them to the viewer count or list, or announce `viewer:joined`
+  (`socket.data.hiddenIn`). In the video room they're an audience member,
+  which is hidden already (LiveKit `hidden`, Agora audience).
+- **Watch only**: the gateway refuses their `chat:send` and `like:send` in
+  that live, and `POST /streams/:id/guest-requests` refuses them
+  (`STAFF_WATCHING`). The join answers `staffWatch: true`, and the app shows
+  "Unseen · Mela staff", locks the chat box, doesn't send likes and hides the
+  raise-hand button.
+- **Recorded**: every watch is an audit entry, `stream.watched_as_staff` -
+  only staff see the audit log.
+
+The Terms and Privacy Policy should say Mela's safety team may watch any
+live to keep the platform safe.
 
 ## How to add to this feature
 

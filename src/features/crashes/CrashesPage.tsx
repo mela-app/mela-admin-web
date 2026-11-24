@@ -1,17 +1,19 @@
 import { getRouteApi } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Bug } from 'lucide-react'
-import { useMemo } from 'react'
+import { Bug, Trash } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { PersonLink } from '../../components/PersonLink'
 import { Badge, type BadgeTone } from '../../components/ui/Badge'
+import { Button, IconButton } from '../../components/ui/Button'
 import { Card, Stat } from '../../components/ui/Card'
 import { DataTable, Pagination } from '../../components/ui/DataTable'
-import { Dialog } from '../../components/ui/Dialog'
+import { ConfirmDialog, Dialog } from '../../components/ui/Dialog'
 import { EmptyState, ErrorState, Skeleton } from '../../components/ui/feedback'
 import { Checkbox, Segmented, Select } from '../../components/ui/forms'
 import { PageHeader, RelativeTime } from '../../components/ui/misc'
+import { useAuth } from '../../lib/auth-context'
 import { formatPrecise } from '../../lib/format'
-import { useCrashGroups, useCrashReports, type CrashFilters } from '../../lib/queries'
+import { actions, useAdminMutation, useCrashGroups, useCrashReports, type CrashFilters } from '../../lib/queries'
 import { DEFAULT_PAGE_SIZE } from '../../lib/search'
 import type { AppCrashKind, CrashGroup, CrashGroupPage, CrashReport } from '../../lib/types'
 
@@ -44,21 +46,38 @@ const KIND_TONES: Record<AppCrashKind, BadgeTone> = {
   DART_ERROR: 'neutral',
 }
 
+// A crash about to be removed with all its reports: from the list, or from its open reports.
+interface Removal {
+  signature: string
+  count?: number
+}
+
 /**
  * What's going wrong in the app on people's phones (docs/features/app-crashes.md):
  * the app closing by itself - a crash, a freeze, Android killing it for memory -
  * and errors it lived through, grouped so the most common comes first. Each
  * report has the phone, the app version, who, the steps just before and the
- * stack.
+ * stack. Staff who manage releases remove a crash (fixed, or noise) or one report.
  */
 export function CrashesPage() {
+  const auth = useAuth()
+  const canManage = auth.can('MANAGE_APP_RELEASES')
   const search = routeApi.useSearch()
   const navigate = routeApi.useNavigate()
   const days = Number(search.days ?? '7')
   const filters: CrashFilters = { days, kind: search.kind, appVersion: search.version, fatal: search.fatal }
   const groups = useCrashGroups(filters, search.page ?? 1)
-  const columns = useMemo(() => crashColumns(), [])
+  const [removing, setRemoving] = useState<Removal | null>(null)
+  const removeCrash = useAdminMutation((signature: string) => actions.deleteCrash(signature), {
+    toastErrors: false,
+    success: (result) => `Removed the crash and its ${result.removed === 1 ? 'report' : `${result.removed} reports`}.`,
+  })
+  const columns = useMemo(
+    () => crashColumns(canManage, (group) => setRemoving({ signature: group.signature, count: group.count })),
+    [canManage],
+  )
   const open = groups.data?.items.find((group) => group.signature === search.crash)
+  const closeDetail = () => void navigate({ search: (previous) => ({ ...previous, crash: undefined }) })
 
   const setFilter = (next: Partial<typeof search>) =>
     void navigate({ search: (previous) => ({ ...previous, ...next, page: undefined, crash: undefined }) })
@@ -143,7 +162,26 @@ export function CrashesPage() {
         group={open}
         signature={search.crash}
         days={days}
-        onClose={() => void navigate({ search: (previous) => ({ ...previous, crash: undefined }) })}
+        canManage={canManage}
+        onRemove={(signature) => setRemoving({ signature, count: open?.count })}
+        onClose={closeDetail}
+      />
+      <ConfirmDialog
+        open={removing !== null}
+        onClose={() => setRemoving(null)}
+        title="Remove this crash?"
+        description={`${
+          removing?.count === undefined
+            ? 'Every report of it goes'
+            : `${removing.count === 1 ? 'Its report' : `All ${removing.count} reports of it`} in this time go, and any older ones too`
+        } - for good. If it happens again, it shows up here as new.`}
+        confirmLabel="Remove crash"
+        tone="danger"
+        onConfirm={async () => {
+          const signature = removing!.signature
+          await removeCrash.mutateAsync(signature)
+          if (search.crash === signature) closeDetail()
+        }}
       />
     </>
   )
@@ -189,8 +227,8 @@ function Summary({ data, loading }: { data: CrashGroupPage | undefined; loading:
   )
 }
 
-function crashColumns(): Array<ColumnDef<CrashGroup>> {
-  return [
+function crashColumns(canManage: boolean, onRemove: (group: CrashGroup) => void): Array<ColumnDef<CrashGroup>> {
+  const columns: Array<ColumnDef<CrashGroup>> = [
     {
       id: 'kind',
       header: 'Kind',
@@ -235,50 +273,104 @@ function crashColumns(): Array<ColumnDef<CrashGroup>> {
       cell: ({ row }) => <RelativeTime value={row.original.lastSeen} className="text-xs text-zinc-600" />,
     },
   ]
+  if (!canManage) return columns
+  return [
+    ...columns,
+    {
+      id: 'actions',
+      header: '',
+      meta: { className: 'w-12', align: 'right' },
+      cell: ({ row }) => (
+        <IconButton label="Remove this crash" onClick={() => onRemove(row.original)}>
+          <Trash />
+        </IconButton>
+      ),
+    },
+  ]
 }
 
 function CrashDetail({
   group,
   signature,
   days,
+  canManage,
+  onRemove,
   onClose,
 }: {
   group: CrashGroup | undefined
   signature: string | undefined
   days: number
+  canManage: boolean
+  onRemove: (signature: string) => void
   onClose: () => void
 }) {
   const reports = useCrashReports(signature, days, 1)
+  const [removingReport, setRemovingReport] = useState<CrashReport | null>(null)
+  const removeReport = useAdminMutation((reportId: string) => actions.deleteCrashReport(reportId), {
+    toastErrors: false,
+    success: 'Report removed.',
+  })
   return (
-    <Dialog
-      open={Boolean(signature)}
-      onClose={onClose}
-      title={group ? CRASH_KIND_LABELS[group.kind] : 'Crash'}
-      description={
-        group
-          ? `${group.count} times to ${group.users} people · first ${formatPrecise(group.firstSeen)} · devices: ${group.devices.join(', ') || 'unknown'}`
-          : undefined
-      }
-      variant="panel"
-      size="lg"
-    >
-      {reports.isPending && <Skeleton className="h-40" />}
-      {reports.error && <ErrorState error={reports.error} onRetry={() => void reports.refetch()} />}
-      <div className="space-y-5">
-        {reports.data?.items.map((report) => (
-          <ReportView key={report.id} report={report} />
-        ))}
-        {reports.data && reports.data.total > reports.data.items.length && (
-          <p className="text-xs text-zinc-500">
-            The latest {reports.data.items.length} of {reports.data.total} reports.
-          </p>
-        )}
-      </div>
-    </Dialog>
+    <>
+      <Dialog
+        open={Boolean(signature)}
+        onClose={onClose}
+        title={group ? CRASH_KIND_LABELS[group.kind] : 'Crash'}
+        description={
+          group
+            ? `${group.count} times to ${group.users} people · first ${formatPrecise(group.firstSeen)} · devices: ${group.devices.join(', ') || 'unknown'}`
+            : undefined
+        }
+        variant="panel"
+        size="lg"
+        footer={
+          canManage && signature ? (
+            <Button variant="danger-ghost" icon={<Trash />} onClick={() => onRemove(signature)}>
+              Remove this crash
+            </Button>
+          ) : undefined
+        }
+      >
+        {reports.isPending && <Skeleton className="h-40" />}
+        {reports.error && <ErrorState error={reports.error} onRetry={() => void reports.refetch()} />}
+        <div className="space-y-5">
+          {reports.data?.items.map((report) => (
+            <ReportView
+              key={report.id}
+              report={report}
+              onRemove={canManage ? () => setRemovingReport(report) : undefined}
+            />
+          ))}
+          {reports.data && reports.data.total > reports.data.items.length && (
+            <p className="text-xs text-zinc-500">
+              The latest {reports.data.items.length} of {reports.data.total} reports.
+            </p>
+          )}
+        </div>
+      </Dialog>
+      <ConfirmDialog
+        open={removingReport !== null}
+        onClose={() => setRemovingReport(null)}
+        title="Remove this report?"
+        description={
+          removingReport
+            ? `The report from ${formatPrecise(removingReport.occurredAt)} goes for good. The crash's other reports stay.`
+            : undefined
+        }
+        confirmLabel="Remove report"
+        tone="danger"
+        onConfirm={async () => {
+          const last = reports.data?.total === 1
+          await removeReport.mutateAsync(removingReport!.id)
+          // Its only report: the crash is gone too.
+          if (last) onClose()
+        }}
+      />
+    </>
   )
 }
 
-function ReportView({ report }: { report: CrashReport }) {
+function ReportView({ report, onRemove }: { report: CrashReport; onRemove?: () => void }) {
   return (
     <section className="rounded-lg border border-zinc-200 p-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-zinc-600">
@@ -292,6 +384,11 @@ function ReportView({ report }: { report: CrashReport }) {
         <span className="ml-auto">
           {report.user ? <PersonLink person={report.user} compact /> : <span className="text-zinc-400">Signed out</span>}
         </span>
+        {onRemove && (
+          <IconButton label="Remove this report" onClick={onRemove} className="-my-1 -mr-2">
+            <Trash />
+          </IconButton>
+        )}
       </div>
       <p className="mt-2 font-mono text-xs break-words whitespace-pre-wrap text-zinc-900">{report.message}</p>
       {report.breadcrumbs.length > 0 && (

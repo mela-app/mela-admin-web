@@ -23,7 +23,8 @@ Each report carries **breadcrumbs**: the last 30 steps the app noted (`CrashWatc
 
 - `POST /v1/app/crashes` `{reports: [{kind, fatal, message, stack?, breadcrumbs?, occurredAt?, deviceModel?, osVersion?}]}` (`AppCrashesController`, `OptionalJwtAuthGuard` - a crash before sign-in counts too; 20 batches a minute, 20 reports a batch). The app version, build and platform come from the request's `X-Mela-*` headers; the account from the token if any. `AppCrashesService.record` trims (message 2,000, stack 16,000, 30 breadcrumbs), dates a report from the future or over 30 days old at its arrival, and stores its **signature** (`crashSignature`: kind + message + top 4 stack frames, numbers, addresses and quoted values left out, SHA-1) - the same crash on every phone groups together.
 - `GET /v1/admin/crashes?days=&kind=&appVersion=&fatal=&page=&pageSize=` (`AdminCrashesService.groups`, `VIEW_APP_RELEASES`): groups by signature, most reports first - each with its kind, latest message, count, people, first/last seen, versions and up to 5 devices; plus totals, a zero-filled count per day (closed / errors) and the versions seen.
-- `GET /v1/admin/crashes/:signature?days=&page=` (`reports`): that crash's reports, newest first, with the stack, breadcrumbs, phone and account.
+- `GET /v1/admin/crashes/:signature?days=&page=` (`reports`): that crash's reports, newest first, with the stack, breadcrumbs, phone and account. The signature must be 16 hex characters.
+- **Removing** (`MANAGE_APP_RELEASES`, like withdrawing a release): `DELETE /v1/admin/crashes/:signature` removes every report of a crash, of any age (`removeCrash`, audit `crash.deleted` with the kind, message and how many); `DELETE /v1/admin/crashes/reports/:id` removes one report (`removeReport`, audit `crash.report_deleted`). A removed crash that happens again comes back as new. On the page: a bin on each row, **Remove this crash** at the foot of its reports, and a bin on each report - each asks first. Staff who only view releases don't see them.
 - The Data page's **Crash reports** set (`appCrashes`, by age) clears them; a deleted account leaves its reports anonymous (`onDelete: SetNull`).
 
 ## Mobile
@@ -34,10 +35,20 @@ Each report carries **breadcrumbs**: the last 30 steps the app noted (`CrashWatc
 
 ## Crash fixes in the same change (2026-11)
 
-- flutter_webrtc 1.6.3 (renderer dispose fixes) with livekit_client 2.13.2; the camera effects compile against the same WebRTC (`150.7871.04`). livekit_client 2.14 was left out: it adds a native library (`livekit_ffi`) downloaded at build time.
+- (Reverted after 1.0.17, see below.) flutter_webrtc 1.6.3 with livekit_client 2.13.2.
 - LiveKit host: leaves the room before freeing the guests' video renderers (frames landing on a freed renderer crash natively); every renderer is detached from its video before it's freed.
 - Agora: `release()` waits (up to 15 s) for a join, preview or publish still running - Agora crashes natively on a call to a released engine - and a viewer closed while getting ready doesn't join the channel.
 - Native threads catch `Throwable`: an out-of-memory error while shrinking a live's thumbnail, or reading share targets' icons, no longer closes the app.
+
+## Fixed after 1.0.17 (2026-11-24)
+
+- **The top crash on 1.0.17**: `IllegalStateException: release() called on an object with refcount < 1` on `main_texture_camera_thread`, opening Go Live with saved beauty/filter settings. flutter_webrtc 1.6.3 started releasing the frame a camera processor returns; `CameraEffects.kt` still released it as well, one frame later.
+- **Video packages back to the versions the live app ran on before**: livekit_client `2.13.0` and flutter_webrtc `1.6.2+hotfix.3` (the one livekit_client pins), pinned exactly in `pubspec.yaml`; the camera effects compile against WebRTC `150.7871.01` again, and `CameraEffects.kt` releases its own frames as it did (with 1.6.2 nothing else does). Upgrading either is a deliberate step: test a live with beauty on, a guest, and leaving/rejoining on real phones first - and on 1.6.3+ the processor must stop releasing its frames.
+- Kept from the change above (app code, fine on the old packages): renderers detached before they're freed (livekit_client 2.13.0 does the same itself), the LiveKit host leaving before freeing guests' renderers, Agora's release waiting for work in flight, native threads catching `Throwable`, and Crashlytics NDK.
+- Releasing a LiveKit live runs each step on its own (`_quietly`): leaving the room, freeing guests' video, then the microphone, camera and preview - one failing (LiveKit's `room.dispose()` throwing) no longer leaves the camera or microphone open for the next live.
+- `CrashWatch.install` can't take the app down: if anything in it fails, crash watching is off for that session and every later call does nothing.
+- Breadcrumbs name pushed screens (`screen /go-live`, a live) - before, the router's list kept the home uri under them, so everything read `screen /`.
+- A Java crash a file each (`crash_java/`, the newest 5): crashing again within seconds of starting, before the last one was sent, no longer overwrites it - those showed as a bare `crash` from Android's exit record, without a stack.
 
 ## How to modify / remove
 

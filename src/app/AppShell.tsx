@@ -1,5 +1,6 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router'
 import {
+  Bug,
   ChartNoAxesCombined,
   Database,
   Flag,
@@ -42,6 +43,7 @@ type NavTarget =
   | '/users'
   | '/staff'
   | '/app-updates'
+  | '/crashes'
   | '/hosting'
   | '/reports'
   | '/alerts'
@@ -151,6 +153,7 @@ function Sidebar() {
         { to: '/users', label: 'Users', icon: Users, needs: 'VIEW_USERS' },
         { to: '/staff', label: 'Staff', icon: ShieldUser },
         { to: '/app-updates', label: 'App updates', icon: Smartphone, needs: 'VIEW_APP_RELEASES' },
+        { to: '/crashes', label: 'Crashes', icon: Bug, needs: 'VIEW_APP_RELEASES' },
       ],
     },
     {

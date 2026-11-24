@@ -1,5 +1,6 @@
 import { day, oneOf, pageSearch, text, type PageSearch } from '../lib/search'
 import type {
+  AppCrashKind,
   AuditActorRole,
   AuditCategory,
   BannedPhraseSeverity,
@@ -162,6 +163,32 @@ export function liveChatSearch(search: Record<string, unknown>): LiveChatSearch 
 
 export function appUpdatesSearch(search: Record<string, unknown>): PageSearch {
   return pageSearch(search)
+}
+
+const CRASH_KINDS: readonly AppCrashKind[] = ['DART_ERROR', 'JAVA_CRASH', 'NATIVE_CRASH', 'ANR', 'LOW_MEMORY', 'KILLED', 'OTHER']
+const CRASH_DAYS = ['1', '7', '30', '90'] as const
+
+export interface CrashesSearch extends PageSearch {
+  // 7 when absent.
+  days?: (typeof CRASH_DAYS)[number]
+  kind?: AppCrashKind
+  version?: string
+  fatal?: boolean
+  // The crash open beside the list.
+  crash?: string
+}
+
+export function crashesSearch(search: Record<string, unknown>): CrashesSearch {
+  const version = text(search.version, 20)
+  const crash = text(search.crash, 40)
+  return {
+    ...pageSearch(search),
+    days: oneOf(String(search.days ?? ''), CRASH_DAYS),
+    kind: oneOf(search.kind, CRASH_KINDS),
+    version: version && /^\d{1,4}(\.\d{1,4}){0,3}$/.test(version) ? version : undefined,
+    fatal: search.fatal === true || search.fatal === 'true' ? true : undefined,
+    crash: crash && /^[0-9a-f]{16}$/.test(crash) ? crash : undefined,
+  }
 }
 
 const REPORT_TYPES: readonly ReportTargetType[] = ['LIVE', 'CHAT_MESSAGE', 'USER', 'DIRECT_MESSAGE']

@@ -742,3 +742,54 @@ export interface VideoSettings {
   switchBackOnReset: boolean
   autoSwitchedAt?: string | null
 }
+
+// What went wrong in the app on phones (docs/features/app-crashes.md).
+export type AppCrashKind = 'DART_ERROR' | 'JAVA_CRASH' | 'NATIVE_CRASH' | 'ANR' | 'LOW_MEMORY' | 'KILLED' | 'OTHER'
+
+/** One crash as it happens on many phones. */
+export interface CrashGroup {
+  signature: string
+  kind: AppCrashKind
+  fatal: boolean
+  message: string
+  count: number
+  users: number
+  firstSeen: string
+  lastSeen: string
+  versions: string[]
+  devices: string[]
+}
+
+export interface CrashGroupPage {
+  items: CrashGroup[]
+  total: number
+  page: number
+  pageSize: number
+  totals: { reports: number; fatal: number; users: number }
+  days: Array<{ day: string; fatal: number; errors: number }>
+  versions: string[]
+}
+
+export interface CrashReport {
+  id: string
+  kind: AppCrashKind
+  fatal: boolean
+  message: string
+  stack: string | null
+  breadcrumbs: string[]
+  platform: string | null
+  appVersion: string | null
+  appBuild: number | null
+  deviceModel: string | null
+  osVersion: string | null
+  occurredAt: string
+  user: Person | null
+}
+
+export interface CrashReportPage {
+  items: CrashReport[]
+  total: number
+  page: number
+  pageSize: number
+}
+

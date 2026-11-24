@@ -4,6 +4,9 @@ import { api } from './api'
 import { dayBoundary } from './format'
 import { useToast } from './toast-context'
 import type {
+  AppCrashKind,
+  CrashGroupPage,
+  CrashReportPage,
   AdminAlert,
   AnalyticsOverview,
   Announcement,
@@ -356,6 +359,40 @@ export function useAppReleases(page: number) {
       api<AppReleasePage>('/admin/app-releases', { signal, query: { page, pageSize: DEFAULT_PAGE_SIZE } }),
     placeholderData: keepPreviousData,
   })
+}
+
+/** The Crashes page: what's going wrong in the app, most common first. */
+export function useCrashGroups(filters: CrashFilters, page: number) {
+  return useQuery({
+    queryKey: ['crashes', filters, page],
+    queryFn: ({ signal }) =>
+      api<CrashGroupPage>('/admin/crashes', {
+        signal,
+        query: { ...filters, fatal: filters.fatal ? 'true' : undefined, page, pageSize: DEFAULT_PAGE_SIZE },
+      }),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** One crash's reports, newest first. */
+export function useCrashReports(signature: string | undefined, days: number, page: number) {
+  return useQuery({
+    queryKey: ['crashes', signature, days, page],
+    enabled: Boolean(signature),
+    queryFn: ({ signal }) =>
+      api<CrashReportPage>(`/admin/crashes/${encodeURIComponent(signature ?? '')}`, {
+        signal,
+        query: { days, page, pageSize: 10 },
+      }),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export interface CrashFilters {
+  days: number
+  kind?: AppCrashKind
+  appVersion?: string
+  fatal?: boolean
 }
 
 /** Growth over a stretch of UTC days (YYYY-MM-DD, both included). */

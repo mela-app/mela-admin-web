@@ -19,6 +19,7 @@ import {
   analyticsSearch,
   campaignsSearch,
   appUpdatesSearch,
+  crashesSearch,
   auditSearch,
   hostingSearch,
   liveChatSearch,
@@ -187,6 +188,14 @@ const appUpdatesRoute = createRoute({
   component: lazyRouteComponent(() => import('../features/releases/AppUpdatesPage'), 'AppUpdatesPage'),
 })
 
+const crashesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/crashes',
+  validateSearch: crashesSearch,
+  beforeLoad: needs('VIEW_APP_RELEASES'),
+  component: lazyRouteComponent(() => import('../features/crashes/CrashesPage'), 'CrashesPage'),
+})
+
 const accountRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/account',
@@ -248,6 +257,7 @@ const routeTree = rootRoute.addChildren([
     messagesRoute,
     staffRoute,
     appUpdatesRoute,
+    crashesRoute,
     accountRoute,
     dataRoute,
     videoRoute,

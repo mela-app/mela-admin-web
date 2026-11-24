@@ -145,6 +145,10 @@ whole endpoint) and filters to streams whose `hostId` is someone the
 caller follows. Everything else about ranking/pagination/category
 filtering is identical to the "All" tab.
 
+## Staff accounts (client request, 2026-11)
+
+App users can't follow Mela's staff accounts (`PLATFORM_MODERATOR`, `SUPER_ADMIN`) - `SocialService.follow` refuses with `403 STAFF_ACCOUNT` (`social/staff-accounts.ts`, `mayFollow`). So there's no bell (live alerts sit on a follow - `PATCH .../follow` needs one) and no private messages (they need a mutual follow). Staff can still follow app users, and each other. `GET /v1/users/:id` says `canFollow` (false for a staff account seen by an app user or signed out, and for yourself); the app's profile and profile card then show no Follow, bell or Message. Follows app users already had of staff were removed by the migration `20261123090000_no_follows_of_staff`, and making someone staff in the console (`AdminUsersService.changeRole`) removes app users' follows of them in the same transaction. Blocking and chat-muting staff are unchanged.
+
 ## Mobile (`apps/mobile/lib/features/social`)
 
 `SocialRepository` wraps every endpoint above. `ProfileScreen` (own and

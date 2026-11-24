@@ -638,6 +638,10 @@ export const actions = {
     api<AppRelease>(`/admin/app-releases/${id(releaseId)}`, { method: 'PATCH', body }),
   withdrawRelease: (releaseId: string) =>
     api<{ ok: true }>(`/admin/app-releases/${id(releaseId)}`, { method: 'DELETE' }),
+  deleteCrash: (signature: string) =>
+    api<{ removed: number }>(`/admin/crashes/${id(signature)}`, { method: 'DELETE' }),
+  deleteCrashReport: (reportId: string) =>
+    api<{ removed: number }>(`/admin/crashes/reports/${id(reportId)}`, { method: 'DELETE' }),
 
   updateMe: (displayName: string) => api<AdminView>('/admin/me', { method: 'PATCH', body: { displayName } }),
   changePassword: (currentPassword: string, newPassword: string) =>

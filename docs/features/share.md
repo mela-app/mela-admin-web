@@ -3,7 +3,7 @@
 **Location**: `apps/backend/src/share` + `apps/web` (the share page's browser player) + mobile `lib/features/live_stream` (share button), `lib/app` (deep link wiring)
 **Plan reference**: plan §6.12
 **Depends on**: `social` (block checks and who may watch, for in-app invites), `common/rate-limit` (anti-spam); the web player on `streams` (`POST /streams/:id/watch`), `realtime` (watch-only sockets) and `auth` (web sign-in)
-**Depended on by**: nothing imports this module - `ShareService.sendInvites()` emits a `stream.invite_sent` domain event that `notifications` reacts to (see docs/features/notifications.md); nothing else depends on it either
+**Depended on by**: nothing imports this module - `ShareService.sendInvites()` emits a `stream.invite_sent` domain event that `notifications` reacts to (see docs/features/notifications.md), and puts each live sent in the recipient's private chat through `DirectMessagesService.shareLive()` (docs/features/messages.md)
 
 ## What it does
 
@@ -14,15 +14,33 @@
   deduplicated, yourself removed, and re-checked server-side - the server
   never trusts a client-supplied id list at face value: active accounts
   only, nobody blocked either way with the sender or the host, and only
-  people who may watch that live (a followers' or friends' live). Friend
-  or not (client request, 2026-10: the sheet also searches anyone), each
-  person is sent a live **once per sender per live** - a Redis SET
-  (`invite:{streamId}:{senderId}`, 24h TTL) remembers who, and also caps
-  distinct invites to 20 per sender per stream, refusing once it's full
-  rather than silently dropping the rest. Whatever's left after all of that emits one `stream.invite_sent`
+  people who may watch that live (a followers' or friends' live). Anyone
+  may be sent it (client request, 2026-10: the sheet also searches anyone).
+  **How often** (client request, 2026-11): two people who **follow each
+  other** (`SocialService.isFriend`) may send each other a live as often as
+  they like - only the sender's rate limit paces it. Anyone else (one-way
+  follows, or none) is sent a live **once per sender per live** - a Redis
+  SET (`invite:{streamId}:{senderId}`, 24h TTL) remembers who, and caps
+  those to 20 per sender per stream, refusing once it's full (unless
+  friends were in the same send) rather than silently dropping the rest.
+  The answer is `{invited, sentOnce}`: who was sent it now, and which of
+  those asked can't be sent it again - the app shows only them as "Sent".
+  Whatever's left after all of that emits one `stream.invite_sent`
   domain event `{streamId, senderId, recipientIds}` - `NotificationsService`
   does the actual notification fan-out (§6.11), so this module never
   touches the `notifications` table directly.
+- **In the private chat** (client request, 2026-11): each live sent also
+  becomes a message in the pair's conversation (`DirectMessagesService.
+  shareLive()`, `direct_messages.streamId`), friends or not - so the
+  recipient can still join from the chat after the push is gone. The app
+  shows it as a card: the live's picture, title, host, LIVE / ENDED, and
+  **Watch live** (`shared_live_card.dart`); the web inbox and the console's
+  messages view show it too. It sends no push of its own (the live invite
+  notification is the push), can't be edited, and is deleted like any
+  message. A live removed for good leaves the card saying "No longer
+  available" (`onDelete: SetNull`). Someone who doesn't follow each other
+  with the sender gets the card but can't reply - the chat stays friends-only
+  for typed messages. A failure storing the card doesn't stop the share.
 - **`GET /live/:id`** (`WebFallbackController`, deliberately unversioned -
   `VERSION_NEUTRAL`, not under `/v1`, since this is what a real
   `https://{app-domain}/live/:id` share link points at for a browser, not

@@ -10,7 +10,7 @@ Four kinds of report, all `app_crashes` rows (`AppCrashKind`):
 
 | Kind | What it is | How the app learns of it |
 |---|---|---|
-| `NATIVE_CRASH` | A crash in native code - the video engines (WebRTC, Agora) | Android's record of why the app ended (`ApplicationExitInfo`, Android 11+), on the next launch |
+| `NATIVE_CRASH` | A crash in native code - the video engines (WebRTC, Agora) | Android's record of why the app ended (`ApplicationExitInfo`, Android 11+), on the next launch; from Android 12 with the crashing thread's backtrace from its tombstone (`Tombstone.kt`) |
 | `JAVA_CRASH` | An uncaught Java/Kotlin exception | `CrashWatch.kt`'s uncaught-exception handler writes the stack before handing on to Crashlytics; sent on the next launch |
 | `ANR` | The app froze ("not responding") and Android closed it | `ApplicationExitInfo`, with the main thread's stack from its trace |
 | `LOW_MEMORY`, `KILLED` | Android closed it for memory, or killed it with a signal, **while it was in use** (background kills aren't crashes) | `ApplicationExitInfo` |
@@ -49,6 +49,13 @@ Each report carries **breadcrumbs**: the last 30 steps the app noted (`CrashWatc
 - `CrashWatch.install` can't take the app down: if anything in it fails, crash watching is off for that session and every later call does nothing.
 - Breadcrumbs name pushed screens (`screen /go-live`, a live) - before, the router's list kept the home uri under them, so everything read `screen /`.
 - A Java crash a file each (`crash_java/`, the newest 5): crashing again within seconds of starting, before the last one was sent, no longer overwrites it - those showed as a bare `crash` from Android's exit record, without a stack.
+
+## Fixed after 1.0.18 (2026-11-25)
+
+- **Native crashes on starting a live's video**: MediaTek phones on Android 16 (TECNO CL6/CL6k, Samsung A075F) crashed natively a moment after `live video: viewer joining (livekit)` - and, the live being Home's moving preview, again at every launch. Lives arrive as VP8 (livekit_client's default), which WebRTC decoded in the phone's video hardware. Now it's WebRTC's own software decoder (libvpx) for VP8 and VP9 (`VideoDecoding.kt`, set on flutter_webrtc's decoder factory, its `forceSWCodecList`, from `main` and before each join or publish). Hosts still encode in hardware - flutter_webrtc's own option would have moved encoding to software too. A live (at most 540p) is light work for libvpx; check a live plays smoothly on a low-end MediaTek phone before each release that touches it. The decoder factory is reached by its private fields in flutter_webrtc `1.6.2+hotfix.3` (kept by its ProGuard rules): upgrading flutter_webrtc means checking `MethodCallHandlerImpl.videoDecoderFactory` still exists - if not, decoding quietly stays as it was.
+- **No crash loop at launch**: when the last session crashed or froze with live video the last thing it did (`CrashWatch.videoCrashLastSession`: the last breadcrumb is `live video: ...` or `home preview ...`, and Android's last exit a crash or ANR), Home shows lives' pictures without the moving preview for that session. Opening a live still plays it.
+- **Native crash reports name the crash**: the message is the signal, thread and top frame (`Native crash: SIGSEGV (SEGV_MAPERR) in thread '...' at libfoo.so (Function+12)`), with the backtrace as the stack - so different native crashes no longer all group as one "crash".
+- One report per process: a native crash also listed as a plain crash (same pid) was sent twice, the second as a "Java crash" with no stack.
 
 ## How to modify / remove
 

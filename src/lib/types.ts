@@ -456,6 +456,9 @@ export interface PrivateMessage {
   // A photo's caption - maybe empty.
   text: string
   imageUrl: string | null
+  // A live shared in the conversation (docs/features/share.md); `stream` null once it's gone for good.
+  streamId: string | null
+  stream: { id: string; title: string } | null
   createdAt: string
   readAt: string | null
 }

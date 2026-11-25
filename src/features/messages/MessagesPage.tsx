@@ -233,6 +233,22 @@ function Bubble({ message, sender, left }: { message: PrivateMessage; sender: Pe
     <li className={cn('flex gap-2.5', !left && 'flex-row-reverse')}>
       <Avatar name={sender.displayName} url={sender.avatarUrl} size="sm" />
       <div className={cn('flex max-w-[75%] flex-col', left ? 'items-start' : 'items-end')}>
+        {message.streamId && (
+          <p className="mb-1 rounded-2xl border border-zinc-200 px-3.5 py-2 text-sm text-zinc-700">
+            Shared a live:{' '}
+            {message.stream ? (
+              <Link
+                to="/streams/$streamId"
+                params={{ streamId: message.stream.id }}
+                className="font-medium text-brand-700 hover:underline"
+              >
+                {message.stream.title || 'Untitled live'}
+              </Link>
+            ) : (
+              <span className="text-zinc-500">no longer available</span>
+            )}
+          </p>
+        )}
         {message.imageUrl && (
           <a href={message.imageUrl} target="_blank" rel="noreferrer" className="mb-1 block" title="Open the photo">
             <img

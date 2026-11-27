@@ -1,6 +1,6 @@
 import { getRouteApi } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Bug, Trash } from 'lucide-react'
+import { Bug, Download, Trash } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { PersonLink } from '../../components/PersonLink'
 import { Badge, type BadgeTone } from '../../components/ui/Badge'
@@ -11,11 +11,14 @@ import { ConfirmDialog, Dialog } from '../../components/ui/Dialog'
 import { EmptyState, ErrorState, Skeleton } from '../../components/ui/feedback'
 import { Checkbox, Segmented, Select } from '../../components/ui/forms'
 import { PageHeader, RelativeTime } from '../../components/ui/misc'
+import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth-context'
 import { formatPrecise } from '../../lib/format'
 import { actions, useAdminMutation, useCrashGroups, useCrashReports, type CrashFilters } from '../../lib/queries'
 import { DEFAULT_PAGE_SIZE } from '../../lib/search'
+import { useToast } from '../../lib/toast-context'
 import type { AppCrashKind, CrashGroup, CrashGroupPage, CrashReport } from '../../lib/types'
+import { crashExportMarkdown, downloadText, type CrashExport } from './crash-export'
 
 const routeApi = getRouteApi('/_app/crashes')
 
@@ -44,6 +47,40 @@ const KIND_TONES: Record<AppCrashKind, BadgeTone> = {
   KILLED: 'warning',
   OTHER: 'warning',
   DART_ERROR: 'neutral',
+}
+
+/**
+ * Downloads the crashes matching [filters] - or one crash - as a Markdown file
+ * to hand to whoever fixes them (docs/features/app-crashes.md, "Exporting").
+ */
+function useCrashExport() {
+  const toast = useToast()
+  const [exporting, setExporting] = useState<string | null>(null)
+  async function exportCrashes(filters: CrashFilters, signature?: string) {
+    setExporting(signature ?? 'all')
+    try {
+      const data = await api<CrashExport>('/admin/crashes/export', {
+        query: { ...filters, fatal: filters.fatal ? 'true' : undefined, signature },
+      })
+      if (data.groups.length === 0) {
+        toast.success('Nothing to export in this time.')
+        return
+      }
+      const stamp = new Date().toISOString().slice(0, 10)
+      downloadText(
+        crashExportMarkdown(data, CRASH_KIND_LABELS),
+        signature ? `mela-crash-${signature}-${stamp}.md` : `mela-crashes-${stamp}.md`,
+      )
+      toast.success(
+        signature ? 'Crash exported.' : `Exported the ${data.groups.length} most common crashes, with their newest reports.`,
+      )
+    } catch (error) {
+      toast.error(error)
+    } finally {
+      setExporting(null)
+    }
+  }
+  return { exporting, exportCrashes }
 }
 
 // A crash about to be removed with all its reports: from the list, or from its open reports.
@@ -76,6 +113,7 @@ export function CrashesPage() {
     () => crashColumns(canManage, (group) => setRemoving({ signature: group.signature, count: group.count })),
     [canManage],
   )
+  const { exporting, exportCrashes } = useCrashExport()
   const open = groups.data?.items.find((group) => group.signature === search.crash)
   const closeDetail = () => void navigate({ search: (previous) => ({ ...previous, crash: undefined }) })
 
@@ -87,6 +125,16 @@ export function CrashesPage() {
       <PageHeader
         title="Crashes"
         description="When the app closes by itself on someone's phone - a crash, a freeze, or Android closing it for memory - it's reported here the next time they open it, with the steps they took just before. Errors the app lived through are listed too. The most common come first."
+        actions={
+          <Button
+            icon={<Download />}
+            loading={exporting === 'all'}
+            disabled={exporting !== null}
+            onClick={() => void exportCrashes(filters)}
+          >
+            Export
+          </Button>
+        }
       />
       <div className="space-y-6">
         <div className="flex flex-wrap items-center gap-3">
@@ -163,6 +211,8 @@ export function CrashesPage() {
         signature={search.crash}
         days={days}
         canManage={canManage}
+        exporting={exporting === search.crash}
+        onExport={(signature) => void exportCrashes(filters, signature)}
         onRemove={(signature) => setRemoving({ signature, count: open?.count })}
         onClose={closeDetail}
       />
@@ -294,6 +344,8 @@ function CrashDetail({
   signature,
   days,
   canManage,
+  exporting,
+  onExport,
   onRemove,
   onClose,
 }: {
@@ -301,6 +353,8 @@ function CrashDetail({
   signature: string | undefined
   days: number
   canManage: boolean
+  exporting: boolean
+  onExport: (signature: string) => void
   onRemove: (signature: string) => void
   onClose: () => void
 }) {
@@ -324,10 +378,17 @@ function CrashDetail({
         variant="panel"
         size="lg"
         footer={
-          canManage && signature ? (
-            <Button variant="danger-ghost" icon={<Trash />} onClick={() => onRemove(signature)}>
-              Remove this crash
-            </Button>
+          signature ? (
+            <>
+              {canManage && (
+                <Button variant="danger-ghost" icon={<Trash />} onClick={() => onRemove(signature)}>
+                  Remove this crash
+                </Button>
+              )}
+              <Button icon={<Download />} loading={exporting} onClick={() => onExport(signature)}>
+                Export this crash
+              </Button>
+            </>
           ) : undefined
         }
       >

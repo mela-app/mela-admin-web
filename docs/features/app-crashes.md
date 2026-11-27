@@ -57,6 +57,10 @@ Each report carries **breadcrumbs**: the last 30 steps the app noted (`CrashWatc
 - **Native crash reports name the crash**: the message is the signal, thread and top frame (`Native crash: SIGSEGV (SEGV_MAPERR) in thread '...' at libfoo.so (Function+12)`), with the backtrace as the stack - so different native crashes no longer all group as one "crash".
 - One report per process: a native crash also listed as a plain crash (same pid) was sent twice, the second as a "Java crash" with no stack.
 
+## Exporting (2026-11-27)
+
+To hand crashes to whoever fixes them: **Export** at the top of the page downloads the crashes matching the page's filters (time, kind, version, only when the app closed) as one Markdown file, `mela-crashes-<date>.md`; **Export this crash** at the foot of an open crash downloads just that one. `GET /v1/admin/crashes/export?days=&kind=&appVersion=&fatal=&signature=` (`AdminCrashesService.export`, `VIEW_APP_RELEASES`) gives the 50 most common crashes, each with its 5 newest reports - message, stack, breadcrumbs, app version and build, phone, Android version, whether the app closed - and **no accounts**: a report says only signed in or out, so the file is safe to pass on. Each export is audited (`crash.exported`, with its filters). The console writes the file (`features/crashes/crash-export.ts`): totals, then each crash with its signature, counts, versions and phones, and its reports' steps and stacks in `~~~~` fences.
+
 ## How to modify / remove
 
 New kinds go in `AppCrashKind` (a migration), `CrashWatch.kt`'s `exitReport`, and the page's labels. To remove: drop `AppCrashesModule`, `src/admin/crashes`, the `appCrashes` data set and the `app_crashes` table; in the app `CrashWatch.kt`, its channel in `MainActivity`, `core/crash_watch.dart` and the `note` calls; the console's `features/crashes`, route and nav item.
